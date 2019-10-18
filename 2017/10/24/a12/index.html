@@ -1,0 +1,309 @@
+<!DOCTYPE HTML>
+<html>
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="utf-8">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="cache-control" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  
+  <title>Redux数据流 | GRYFFONDOR</title>
+  <meta name="author" content="TalkWithKeyboard">
+  
+  <meta name="description" content="本文参考阮一峰老师的文章，着重从数据流的角度分析 redux
+
+Redux 入门教程（一）：基本用法
+Redux 入门教程（二）：中间件与异步操作
+Redux 入门教程（三）：React-Redux 的用法
+
+
+
+同步数据流参照图例，这是一次用户行为的数据流图。
+
+(1) 用户操作 View。
+
+(">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="Redux数据流">
+  <meta property="og:site_name" content="GRYFFONDOR">
+
+  
+    <meta property="og:image" content>
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="/css/bootstrap.min.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/font-awesome.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/responsive.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/highlight.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/google-fonts.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+
+  <script src="/js/jquery-2.0.3.min.js"></script>
+
+</head>
+</html>
+ <body>  
+  <nav id="main-nav" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+      <button type="button" class="navbar-header navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+	  <a class="navbar-brand" href="/">GRYFFONDOR</a>
+      <div class="collapse navbar-collapse nav-menu">
+		<ul class="nav navbar-nav">
+		  
+		  <li>
+			<a href="/archives" title="All the articles.">
+			  <i class=""></i>Archives
+			</a>
+		  </li>
+		  
+		  <li>
+			<a href="/atom.xml" title="Subscribe me.">
+			  <i class=""></i>RSS
+			</a>
+		  </li>
+		  
+		</ul>
+      </div>
+    </div> <!-- container -->
+</nav>
+<div class="clearfix"></div>
+
+  <div class="container">
+  	<div class="content">
+    	 
+
+
+	
+		<div class="page-header">
+			<h1> Redux数据流</h1>
+		</div>
+	
+
+
+
+<div class="row post">
+	<!-- cols -->
+	
+	<div id="top_meta"></div>
+	<div class="col-md-9">
+	
+
+	<!-- content -->
+	<div class="mypage">		
+	  		
+
+	  <blockquote>
+<p>本文参考阮一峰老师的文章，着重从数据流的角度分析 <code>redux</code></p>
+<ul>
+<li><a href="http://www.ruanyifeng.com/blog/2016/09/redux_tutorial_part_one_basic_usages.html" target="_blank" rel="noopener">Redux 入门教程（一）：基本用法</a></li>
+<li><a href="http://www.ruanyifeng.com/blog/2016/09/redux_tutorial_part_two_async_operations.html" target="_blank" rel="noopener">Redux 入门教程（二）：中间件与异步操作</a></li>
+<li><a href="http://www.ruanyifeng.com/blog/2016/09/redux_tutorial_part_three_react-redux.html" target="_blank" rel="noopener">Redux 入门教程（三）：React-Redux 的用法</a></li>
+</ul>
+</blockquote>
+<p><img src="http://oj7mt8loy.bkt.clouddn.com/redux.png" alt="redux"></p>
+<h2 id="同步数据流"><a href="#同步数据流" class="headerlink" title="同步数据流"></a>同步数据流</h2><p>参照图例，这是一次用户行为的数据流图。</p>
+<ul>
+<li><p><strong>(1)</strong> 用户操作 <code>View</code>。</p>
+</li>
+<li><p><strong>(2)(3)</strong> <code>View</code> 通过 <code>Action Creator</code> 发出相应的 <code>Action</code>。</p>
+<ul>
+<li><code>Action Creator</code> 就是一个 <code>Action</code> 工厂，统一管理所有的 <code>Action</code>。让代码更好管理，互用性更强。</li>
+</ul>
+</li>
+<li><p><strong>(4)</strong> <code>Store</code> 通过 <code>dispatch</code> 函数获取相应的 <code>Action</code>，并且触发 <code>Reduer</code> 计算新的 <code>State</code>。</p>
+<ul>
+<li><p><code>dispatch</code> 之所以可以自动触发 <code>Reducer</code>，是因为在生成 <code>Store</code> 的时候就已经绑定好了。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; createStore &#125; <span class="keyword">from</span> <span class="string">'redux'</span>;</span><br><span class="line"><span class="keyword">const</span> store = createStore(reducer);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong><code>dispatch</code> 的接口只接收对象。</strong></p>
+</li>
+</ul>
+</li>
+<li><p><strong>(5)</strong> <code>Reduer</code> 接收现在的 <code>State</code>，以及 <code>Action</code>。做出相应的状态变化计算，得到新的 <code>State</code>。并且通过 <code>Store</code> 的 <code>subscibe</code> 监听 <code>State</code> 的变化，并回调对应的 <code>Listener</code> 函数。</p>
+<ul>
+<li><code>Reducer</code> 是状态机的核心，定义了状态转移的计算方法。 <strong>也正是因为这些 <code>Action</code> 是我们手动绑定并进行处理，保证了数据流的单向性。</strong></li>
+<li>当然对于比较繁琐的 <code>Reducer</code> 的设计也有更好的设计模式，比如提供了 <code>combineReducers</code> 函数，详细用法可见阮一峰老师的文档。</li>
+<li>对应的 <code>Listener</code> 函数也是在申明的时候已经做好了绑定。  <figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; createStore &#125; <span class="keyword">from</span> <span class="string">'redux'</span>;</span><br><span class="line"><span class="keyword">const</span> store = createStore(reducer);</span><br><span class="line"></span><br><span class="line">store.subscribe(listener);</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+</li>
+<li><p><strong>(6)</strong> 在 <code>Listener</code> 中获取现在的 <code>State</code> 并用它重新渲染 <code>View</code>。</p>
+<ul>
+<li>可以通过 <code>store.getState()</code> 获取现在的 <code>State</code>。<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">listerner</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">let</span> newState = store.getState();</span><br><span class="line">  component.setState(newState);   </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="异步数据流"><a href="#异步数据流" class="headerlink" title="异步数据流"></a>异步数据流</h2><p>由于 <code>Redux</code> 中 <code>store.dispatch</code> 的接口要求很严格，只能传递对象类型的 <code>Action</code>，所以这里我们需要先引入中间件来完成我们理想的设计。</p>
+<h3 id="中间件"><a href="#中间件" class="headerlink" title="中间件"></a>中间件</h3><ul>
+<li><strong>(4)</strong> 在原第4步过程的基础上，我们引入中间件。 <code>Action</code> 会先被中间件逐步拦截处理以后传递给 <code>Reducer</code>。并且多个中间件是支持通过 <code>applyMiddlewares()</code> 函数来连接在一起。</li>
+</ul>
+<h3 id="异步实现"><a href="#异步实现" class="headerlink" title="异步实现"></a>异步实现</h3><ul>
+<li><p><strong>(3)</strong> 异步数据流首先对传统的仅发送对象的 <code>Action</code> 做了修改，这里发送函数类型的 <code>Action</code>，在这个返回函数当中先发送了一个异步开始的对象 <code>Action</code> ，在结束的时候再发送异步成功/失败的对象 <code>Action</code>。</p>
+<blockquote>
+<p>这里是我纠结比较久的地方，最开始我很不能接受这种将IO操作放在 <code>Action</code> 里的设计，因为我觉得像这样的数据处理相关的操作是应该放在 <code>Reducer</code> 里的。后来我和室友讨论了以后，有了一些新的想法：</p>
+<ul>
+<li>首先异步操作是应该被放在网络层（或者叫IO层），而 <code>Reducer</code> 是担任数据计算的任务，所以把异步操作放在 <code>Reducer</code> 里也是一种不适当的分层。</li>
+<li>然后因为 <code>Creator</code> 的任务本来就很轻松，只用生成一些 <code>Action</code> 对象，所以这边把网络层放入其中也比较合适。</li>
+<li>最后这种设计其实也没有和最初的思想违背，<code>Creator</code> 还是只是生成一些 <code>Action</code>，而并没有执行这些 <code>Action</code>。</li>
+</ul>
+<p><strong>以上只是个人看法，欢迎拍砖讨论。</strong></p>
+</blockquote>
+</li>
+<li><p>至于实现的方案就有很多了，比如阮一峰老师文章里的 <code>redux-thunk</code> 和 <code>redux-promise</code>，还有现在比较流行的基于 <code>Generator</code> 的 <code>redux-sage</code>。这里就不一一赘述。</p>
+</li>
+</ul>
+<h2 id="React-Reduce"><a href="#React-Reduce" class="headerlink" title="React-Reduce"></a>React-Reduce</h2><p>当直接使用 <code>React-Reduce</code> 的时候，需要按照规定的范式将组件拆分为 <code>UI组件</code> 和 <code>容器组件</code>。详细可见阮一峰老师的文档，这里主要介绍使用了 <code>React-Reduce</code> 以后对于我们的数据流有哪些影响。</p>
+<ul>
+<li><p><strong>(1)(2)</strong> 通过 <code>mapDispatchToProps</code> 函数，可以设置哪些用户的操作会被当做 <code>Action</code>，并且当做哪个 <code>Action</code> 传递给 <code>Store</code>，也就是我们不需要在第一步中 Hard code 一些动作到 <code>Action</code> 的代码。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> mapDispatchToProps = (</span><br><span class="line">  dispatch,</span><br><span class="line">  ownProps</span><br><span class="line">) =&gt; &#123;</span><br><span class="line">  <span class="keyword">return</span> &#123;</span><br><span class="line">    onClick: <span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">      dispatch(&#123;</span><br><span class="line">        type: <span class="string">'SET_VISIBILITY_FILTER'</span>,</span><br><span class="line">        filter: ownProps.filter</span><br><span class="line">      &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>(6)</strong> 通过 <code>mapStateToProps</code> 函数，可以进行 <code>State</code> 到 <code>UI组件</code> 的 <code>prop</code> 的映射。并对 <code>View</code> 进行重新渲染，也就是说我们不需要在第6步当中再写一些获取现在 <code>State</code> 做渲染的工作。<strong>（非常适合做一些过滤、分析、或者担任数据的组织层）</strong></p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> mapStateToProps = <span class="function">(<span class="params">state</span>) =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">return</span> &#123;</span><br><span class="line">    todos: getVisibleTodos(state.todos, state.visibilityFilter)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+</li>
+</ul>
+  <figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 根据是否完成进行过滤</span></span><br><span class="line"><span class="keyword">const</span> getVisibleTodos = <span class="function">(<span class="params">todos, filter</span>) =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">switch</span> (filter) &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">'SHOW_ALL'</span>:</span><br><span class="line">      <span class="keyword">return</span> todos</span><br><span class="line">    <span class="keyword">case</span> <span class="string">'SHOW_COMPLETED'</span>:</span><br><span class="line">      <span class="keyword">return</span> todos.filter(<span class="function"><span class="params">t</span> =&gt;</span> t.completed)</span><br><span class="line">    <span class="keyword">case</span> <span class="string">'SHOW_ACTIVE'</span>:</span><br><span class="line">      <span class="keyword">return</span> todos.filter(<span class="function"><span class="params">t</span> =&gt;</span> !t.completed)</span><br><span class="line">    <span class="keyword">default</span>:</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">Error</span>(<span class="string">'Unknown filter: '</span> + filter)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>	  
+	</div>
+
+	<div>
+  	<center>
+	<div class="pagination">
+
+    
+    
+    <a href="/2017/11/02/a10/" type="button" class="btn btn-default"><i
+                class="fa fa-arrow-circle-o-left"></i> Prev</a>
+    
+
+    <a href="/" type="button" class="btn btn-default"><i class="fa fa-home"></i>Home</a>
+    
+    <a href="/2017/09/14/a11/" type="button" class="btn btn-default ">Next<i
+                class="fa fa-arrow-circle-o-right"></i></a>
+    
+
+    
+</div>
+
+    </center>
+	</div>
+	
+	<!-- comment -->
+	
+<section id="comment">
+    <h2 class="title">Comments</h2>
+
+    
+</section>
+
+
+	</div> <!-- col-md-9/col-md-12 -->
+		
+	
+	<div id="side_meta">
+		<div class="col-md-3" id="post_meta"> 
+
+	<!-- date -->
+	
+	<div class="meta-widget">
+	<i class="fa fa-clock-o"></i>
+	2017-10-24 
+	</div>
+	
+
+	<!-- categories -->
+    
+
+	<!-- tags -->
+	
+	<div class="meta-widget">
+	<a data-toggle="collapse" data-target="#tags"><i class="fa fa-tags"></i></a>		  
+    <ul id="tags" class="tag_box list-unstyled collapse in">	  
+	    
+  <li><a href="/tags/front-end/">front-end<span>1</span></a></li> <li><a href="/tags/react/">react<span>1</span></a></li> <li><a href="/tags/redux/">redux<span>1</span></a></li>
+    </ul>
+	</div>
+		
+
+	<!-- toc -->
+	<div class="meta-widget">
+	
+	   <a data-toggle="collapse" data-target="#toc"><i class="fa fa-bars"></i></a>
+	   <div id="toc" class="toc collapse in">
+		   <span class="toc-title">Contents</span>
+			<ol class="toc-article"><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#同步数据流"><span class="toc-article-text">同步数据流</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#异步数据流"><span class="toc-article-text">异步数据流</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#中间件"><span class="toc-article-text">中间件</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#异步实现"><span class="toc-article-text">异步实现</span></a></li></ol></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#React-Reduce"><span class="toc-article-text">React-Reduce</span></a></li></ol>
+		</div>
+	
+	</div>
+	
+    <hr>
+	
+</div><!-- col-md-3 -->
+
+	</div>
+		
+
+</div><!-- row -->
+
+
+
+	</div>
+  </div>
+  <div class="container-narrow">
+  <footer> <p>
+  &copy; 2019 TalkWithKeyboard
+  
+      with help from <a href="http://hexo.io/" target="_blank">Hexo</a>,<a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind</a>,<a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a> and <a href="http://getbootstrap.com/" target="_blank">BOOTSTRA.386</a>. 
+     <br> Theme by <a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind.386</a>.    
+</p>
+ </footer>
+</div> <!-- container-narrow -->
+  
+
+
+  
+<a id="gotop" href="#">   
+  <span>⬆︎TOP</span>
+</a>
+
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/search.js"></script> 
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+
+
+   <script type="text/javascript">      
+     var search_path = "search.xml";
+	 if (search_path.length == 0) {
+	 	search_path = "search.xml";
+	 }
+	 var path = "/" + search_path;
+     searchFunc(path, 'local-search-input', 'local-search-result');
+   </script>
+
+</body>
+   </html>

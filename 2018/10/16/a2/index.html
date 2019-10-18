@@ -1,0 +1,271 @@
+<!DOCTYPE HTML>
+<html>
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="utf-8">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="cache-control" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  
+  <title>数据库的在线迁移[2] | GRYFFONDOR</title>
+  <meta name="author" content="TalkWithKeyboard">
+  
+  <meta name="description" content="Environment
+Spark version: 2.2.1
+EMR: Amazon EMR
+Master: m4.xlarge [8vCore, 16GB] * 1
+Task: r4.xlarge[4vCore, 30.5GB] * (0-20)
+Core: r4.xlarge[4vCore,">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="数据库的在线迁移[2]">
+  <meta property="og:site_name" content="GRYFFONDOR">
+
+  
+    <meta property="og:image" content>
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="/css/bootstrap.min.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/font-awesome.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/responsive.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/highlight.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/google-fonts.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+
+  <script src="/js/jquery-2.0.3.min.js"></script>
+
+</head>
+</html>
+ <body>  
+  <nav id="main-nav" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+      <button type="button" class="navbar-header navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+	  <a class="navbar-brand" href="/">GRYFFONDOR</a>
+      <div class="collapse navbar-collapse nav-menu">
+		<ul class="nav navbar-nav">
+		  
+		  <li>
+			<a href="/archives" title="All the articles.">
+			  <i class=""></i>Archives
+			</a>
+		  </li>
+		  
+		  <li>
+			<a href="/atom.xml" title="Subscribe me.">
+			  <i class=""></i>RSS
+			</a>
+		  </li>
+		  
+		</ul>
+      </div>
+    </div> <!-- container -->
+</nav>
+<div class="clearfix"></div>
+
+  <div class="container">
+  	<div class="content">
+    	 
+
+
+	
+		<div class="page-header">
+			<h1> 数据库的在线迁移[2]</h1>
+		</div>
+	
+
+
+
+<div class="row post">
+	<!-- cols -->
+	
+	<div id="top_meta"></div>
+	<div class="col-md-9">
+	
+
+	<!-- content -->
+	<div class="mypage">		
+	  		
+
+	  <h2 id="Environment"><a href="#Environment" class="headerlink" title="Environment"></a>Environment</h2><ul>
+<li>Spark version: 2.2.1</li>
+<li>EMR: Amazon EMR<ul>
+<li>Master: m4.xlarge [8vCore, 16GB] * 1</li>
+<li>Task: r4.xlarge[4vCore, 30.5GB] * (0-20)</li>
+<li>Core: r4.xlarge[4vCore, 30.5GB] * (1-15)</li>
+</ul>
+</li>
+<li>Mongo Collection:<ul>
+<li>A: 73.4G</li>
+<li>B: 28.7G</li>
+</ul>
+</li>
+</ul>
+<p><em>Task 和 Core 都是 Auto Scaling, B表与A表是一对多的关系。</em></p>
+<p>操作非常简单，从 Mongo 中分别读取 A , B 表。再将两表 <code>join</code> 后，选取字段，存入一个已经按照 C 字段 shard 的 Mongo 当中。并且 C 字段不是 <code>_id</code>。</p>
+<h2 id="Trap"><a href="#Trap" class="headerlink" title="Trap"></a>Trap</h2><h3 id="Full-Scan"><a href="#Full-Scan" class="headerlink" title="Full Scan"></a>Full Scan</h3><p>在 MongoSpark 中如果使用 schema，并且在 schema 中对一些参数设置了 <code>nullable=false</code> 会出现在 NodeManager 进行 sample partition统计的时候需要使用这个 filter 条件对全表进行 scan，所以如果有些字段没有索引的话，会发现 load 数据的时间特别长。（还好 Dreamsome 踩过这个坑，不然不知道猴年马月能发现。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> count = <span class="keyword">if</span> (matchQuery.isEmpty) &#123;</span><br><span class="line">         results.getNumber(<span class="string">"count"</span>).longValue()</span><br><span class="line">       &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">         connector.withCollectionDo(readConfig, &#123; coll: <span class="type">MongoCollection</span>[<span class="type">BsonDocument</span>] =&gt; coll.countDocuments(matchQuery) &#125;)</span><br><span class="line">       &#125;</span><br><span class="line">       <span class="keyword">val</span> avgObjSizeInBytes = results.get(<span class="string">"avgObjSize"</span>, <span class="keyword">new</span> <span class="type">BsonInt64</span>(<span class="number">0</span>)).asNumber().longValue()</span><br><span class="line">       <span class="keyword">val</span> numDocumentsPerPartition: <span class="type">Int</span> = math.floor(partitionSizeInBytes.toFloat / avgObjSizeInBytes).toInt</span><br><span class="line">       <span class="keyword">val</span> numberOfSamples = math.floor(samplesPerPartition * count / numDocumentsPerPartition.toFloat).toInt</span><br></pre></td></tr></table></figure>
+
+<p><a href="https://github.com/mongodb/mongo-spark/blob/master/src/main/scala/com/mongodb/spark/rdd/partitioner/MongoSamplePartitioner.scala#L88" target="_blank" rel="noopener">mongo-spark/MongoSamplePartitioner.scala at master · mongodb/mongo-spark · GitHub</a></p>
+<p>源码中可以看到，如果不包含 <code>matchQuery</code> 是没有问题的，如果有的话会使用 <code>matchQuery</code> 进行 count。</p>
+<h3 id="NodeManger-Restart"><a href="#NodeManger-Restart" class="headerlink" title="NodeManger Restart"></a>NodeManger Restart</h3><p>在任务执行中间，偶尔会出现 <code>java.lang.RuntimeException: Executor is not registered</code> 的报错。查看后主要原因是因为 NodeManager 在任务运行中挂掉重启以后，本来在它管理下的 Executor 没有办法重现注册导致的。但是看到 <code>Spark</code> 社区有人报这个bug，并且被标记为在 <code>1.6.0</code> 版本已经 fix 了。黑人问号脸。</p>
+<p><a href="https://issues.apache.org/jira/browse/SPARK-9439" target="_blank" rel="noopener">SPARK-9439 ExternalShuffleService should be robust to NodeManager restarts in yarn - ASF JIRA</a></p>
+<h3 id="Mongo-Spark-Upsert"><a href="#Mongo-Spark-Upsert" class="headerlink" title="Mongo Spark Upsert"></a>Mongo Spark Upsert</h3><p>Mongo 中的 Upsert 操作不是原子操作，所以在两个线程同时 <code>upsert</code> 一个不存在的 <code>_id</code> 时，是可能出现报错的。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">To prevent MongoDB from inserting the same document more than once, create a unique index on the name field. With a unique index, if multiple applications issue the same update with upsert: true, exactly one update() would successfully insert a new document.</span><br><span class="line"></span><br><span class="line">The remaining operations would either:</span><br><span class="line"></span><br><span class="line"> 1. update the newly inserted document, or</span><br><span class="line"></span><br><span class="line"> 2. fail when they attempted to insert a duplicate.</span><br><span class="line">   If the operation fails because of a duplicate index key error, applications may retry the operation which will succeed as an update operation.</span><br></pre></td></tr></table></figure>
+
+<p><a href="https://docs.mongodb.com/manual/reference/method/db.collection.update/#use-unique-indexes" target="_blank" rel="noopener">db.collection.update() — MongoDB Manual</a></p>
+<p>以上是官方文档中的说明，可能出现同时插入时，后一个 <code>upsert</code> 报错的情况。而对于这种情况来说，使用 Mongo spark 是很难处理的，没办法 catch 住后一个异常。先来看看 Mongo spark 的 <code>save</code> 方法。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">save</span></span>[<span class="type">D</span>](dataset: <span class="type">Dataset</span>[<span class="type">D</span>], writeConfig: <span class="type">WriteConfig</span>): <span class="type">Unit</span> = &#123;</span><br><span class="line">    <span class="keyword">val</span> mongoConnector = <span class="type">MongoConnector</span>(writeConfig.asOptions)</span><br><span class="line">    <span class="keyword">val</span> dataSet = dataset.toDF()</span><br><span class="line">    <span class="keyword">val</span> mapper = rowToDocumentMapper(dataSet.schema)</span><br><span class="line">    <span class="keyword">val</span> documentRdd: <span class="type">RDD</span>[<span class="type">BsonDocument</span>] = dataSet.rdd.map(row =&gt; mapper(row))</span><br><span class="line">    <span class="keyword">val</span> fieldNames = dataset.schema.fieldNames.toList</span><br><span class="line">    <span class="keyword">val</span> queryKeyList = <span class="type">BsonDocument</span>.parse(writeConfig.shardKey.getOrElse(<span class="string">"&#123;_id: 1&#125;"</span>)).keySet().asScala.toList</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (writeConfig.forceInsert || !queryKeyList.forall(fieldNames.contains(_))) &#123;</span><br><span class="line">      <span class="type">MongoSpark</span>.save(documentRdd, writeConfig)</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      documentRdd.foreachPartition(iter =&gt; <span class="keyword">if</span> (iter.nonEmpty) &#123;</span><br><span class="line">        mongoConnector.withCollectionDo(writeConfig, &#123; collection: <span class="type">MongoCollection</span>[<span class="type">BsonDocument</span>] =&gt;</span><br><span class="line">          iter.grouped(writeConfig.maxBatchSize).foreach(batch =&gt; &#123;</span><br><span class="line">            <span class="keyword">val</span> updateOptions = <span class="keyword">new</span> <span class="type">UpdateOptions</span>().upsert(<span class="literal">true</span>)</span><br><span class="line">            <span class="keyword">val</span> requests = batch.map(doc =&gt;</span><br><span class="line">              <span class="keyword">if</span> (queryKeyList.forall(doc.containsKey(_))) &#123;</span><br><span class="line">                <span class="keyword">val</span> queryDocument = <span class="keyword">new</span> <span class="type">BsonDocument</span>()</span><br><span class="line">                queryKeyList.foreach(key =&gt; queryDocument.append(key, doc.get(key)))</span><br><span class="line">                <span class="keyword">if</span> (writeConfig.replaceDocument) &#123;</span><br><span class="line">                  <span class="keyword">new</span> <span class="type">ReplaceOneModel</span>[<span class="type">BsonDocument</span>](queryDocument, doc, updateOptions)</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                  queryDocument.keySet().asScala.foreach(doc.remove(_))</span><br><span class="line">                  <span class="keyword">new</span> <span class="type">UpdateOneModel</span>[<span class="type">BsonDocument</span>](queryDocument, <span class="keyword">new</span> <span class="type">BsonDocument</span>(<span class="string">"$set"</span>, doc), updateOptions)</span><br><span class="line">                &#125;</span><br><span class="line">              &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="keyword">new</span> <span class="type">InsertOneModel</span>[<span class="type">BsonDocument</span>](doc)</span><br><span class="line">              &#125;)</span><br><span class="line">            collection.bulkWrite(requests.toList.asJava)</span><br><span class="line">          &#125;)</span><br><span class="line">        &#125;)</span><br><span class="line">      &#125;)</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>在集合一些 <code>ReplaceOneModel</code>,  <code>UpdateOneModel</code>,  <code>InsertOneModel</code> 最后调用的是 <code>collection.bulkWrite</code> 方法。对使用者来说是没有办法 catch 其中一条的异常的，所以可能导致整个 task 失败重试。在设计上就应该尽量规避有两个 partition 同时 upsert 一个 <code>_id</code> 对象的情况。</p>
+<h3 id="Mongo-Shard"><a href="#Mongo-Shard" class="headerlink" title="Mongo Shard"></a>Mongo Shard</h3><p>当 mongo 的 shard key 不是 <code>_id</code>，而是其他 filed 的时候，会出现同一个 <code>_id</code> 的多个元素被写入到数据库中。因为 mongo 内部只能保证在一个 shard 中的 collection 强制的唯一性。并且在进行 shard 的时候，会自动对 shard 进行索引，但是不会创建唯一性索引。所以在可能会出现多个同一 <code>_id</code> 的情况下，需要注意。</p>
+<p><a href="https://stackoverflow.com/questions/11241819/duplicate-documents-on-id-in-mongo" target="_blank" rel="noopener">mongodb - Duplicate documents on _id (in mongo) - Stack Overflow</a></p>
+<p>而且经过实验发现，在 Mongo Spark save 的过程当中需要指定 <code>WriteConfig</code> 中的 <code>shardKey</code> ，而且必须包含  <code>{_id: 1}</code> ，不然会报错。比如 <code>shardKey</code> 是 <code>user</code>，需要写成 <code>{_id: 1, user: 1}</code>。这是因为 <code>user</code> 并不是数据库的 <code>unique index</code>，而 <code>_id</code> 在这个 shard 中是 <code>unique index</code> 并且是 <code>immutable</code> 的， 所以如果我用 <code>user</code> 做 query 条件去更新 <code>_id</code> 就会出错。</p>
+<h3 id="Yarn-Resource"><a href="#Yarn-Resource" class="headerlink" title="Yarn Resource"></a>Yarn Resource</h3><p>在分 Executor Container 的时候是一台物理机器一台的分，所以可能出现内存碎片。比如一台16G内存的机器，4.5G一个 Executor Container，那么只能产生3个Executor Container，还剩下 2.5G 的内存不够启一个 Executor Container，所以产生碎片。并且这个碎片是不会在 Yarn UI 中表现出来， 所以会导致在 UI 中出现 <code>total &lt;&gt; used + reserved</code> 的情况。</p>
+<p>并且每个 Executor Container 的内存使用不只是通过 <code>spark.executor.memory</code> 设置的大小，会有多余的内存来作为 Container 的运行使用。</p>
+<h2 id="Optimization"><a href="#Optimization" class="headerlink" title="Optimization"></a>Optimization</h2><h3 id="Spark-Join-Shuffle"><a href="#Spark-Join-Shuffle" class="headerlink" title="Spark Join Shuffle"></a>Spark Join Shuffle</h3><p>Spark 在进行 <code>join</code> 操作的之前会对 <code>join key</code> 进行 <code>repartition</code>。而 Mongo Spark 在从 Mongo 中读取数据的时候会使用 <code>_id</code> 进行 <code>partition</code>，这样会多做一次较为耗时的工作。可以在 MongoSpark 读取数据的时候直接通过 <code>join key</code> 进行 <code>partition</code>。</p>
+<p>但是 MongoSpark 中没有支持一种 partition 策略，保证一些 <code>join key</code> 对应的 Document 全部分在一个 partition 当中，基本都是按照 partitionSize 结合 <code>join key</code> 来做切分，所以需要自己实现，并且如果数据分布不均匀的话可能导致数据倾斜而造成内存问题。所以需要对自己的数据集有一定认识以后再选取合适的方法。</p>
+<p>下文中有详细的指出各种 partitioner 的策略：<br><a href="https://github.com/mongodb/mongo-spark/blob/master/doc/2-configuring.md" target="_blank" rel="noopener">mongo-spark/2-configuring.md at master · mongodb/mongo-spark · GitHub</a></p>
+<p>并且如果是一个小的集合和另外一个大的集合进行 join 的时候，可以考虑 <code>broadcast join</code> 通过将小的集合广播到其他 Excutor 上的形式来避免 shuffle。</p>
+<h3 id="EMR-Auto-Scaling"><a href="#EMR-Auto-Scaling" class="headerlink" title="EMR Auto Scaling"></a>EMR Auto Scaling</h3><p>EMR 的自动收缩会导致一些并没有完成所有 Task 的机器被回收，导致一些机器重启，而之上的所有 Excuter 执行的任务都需要重新运行。如果需要依赖 cache 的任务还需要重跑上游 Task，在跑大体量的任务的时候，不应该再把这个风险引入。</p>
+<h3 id="Resource-assignment"><a href="#Resource-assignment" class="headerlink" title="Resource assignment"></a>Resource assignment</h3><p><a href="https://www.iteblog.com/archives/1659.html" target="_blank" rel="noopener">Spark性能优化：资源调优篇 – 过往记忆</a><br><a href="https://community.qingcloud.com/topic/314/%E6%B5%85%E8%B0%88spark%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E7%9A%84%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98" target="_blank" rel="noopener">浅谈Spark应用程序的性能调优 | 青云QingCloud 社区</a></p>
+	  
+	</div>
+
+	<div>
+  	<center>
+	<div class="pagination">
+
+    
+    
+    <a href="/2018/11/16/a3/" type="button" class="btn btn-default"><i
+                class="fa fa-arrow-circle-o-left"></i> Prev</a>
+    
+
+    <a href="/" type="button" class="btn btn-default"><i class="fa fa-home"></i>Home</a>
+    
+    <a href="/2018/08/19/a1/" type="button" class="btn btn-default ">Next<i
+                class="fa fa-arrow-circle-o-right"></i></a>
+    
+
+    
+</div>
+
+    </center>
+	</div>
+	
+	<!-- comment -->
+	
+<section id="comment">
+    <h2 class="title">Comments</h2>
+
+    
+</section>
+
+
+	</div> <!-- col-md-9/col-md-12 -->
+		
+	
+	<div id="side_meta">
+		<div class="col-md-3" id="post_meta"> 
+
+	<!-- date -->
+	
+	<div class="meta-widget">
+	<i class="fa fa-clock-o"></i>
+	2018-10-16 
+	</div>
+	
+
+	<!-- categories -->
+    
+
+	<!-- tags -->
+	
+	<div class="meta-widget">
+	<a data-toggle="collapse" data-target="#tags"><i class="fa fa-tags"></i></a>		  
+    <ul id="tags" class="tag_box list-unstyled collapse in">	  
+	    
+  <li><a href="/tags/database/">database<span>2</span></a></li>
+    </ul>
+	</div>
+		
+
+	<!-- toc -->
+	<div class="meta-widget">
+	
+	   <a data-toggle="collapse" data-target="#toc"><i class="fa fa-bars"></i></a>
+	   <div id="toc" class="toc collapse in">
+		   <span class="toc-title">Contents</span>
+			<ol class="toc-article"><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#Environment"><span class="toc-article-text">Environment</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#Trap"><span class="toc-article-text">Trap</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Full-Scan"><span class="toc-article-text">Full Scan</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#NodeManger-Restart"><span class="toc-article-text">NodeManger Restart</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Mongo-Spark-Upsert"><span class="toc-article-text">Mongo Spark Upsert</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Mongo-Shard"><span class="toc-article-text">Mongo Shard</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Yarn-Resource"><span class="toc-article-text">Yarn Resource</span></a></li></ol></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#Optimization"><span class="toc-article-text">Optimization</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Spark-Join-Shuffle"><span class="toc-article-text">Spark Join Shuffle</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#EMR-Auto-Scaling"><span class="toc-article-text">EMR Auto Scaling</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Resource-assignment"><span class="toc-article-text">Resource assignment</span></a></li></ol></li></ol>
+		</div>
+	
+	</div>
+	
+    <hr>
+	
+</div><!-- col-md-3 -->
+
+	</div>
+		
+
+</div><!-- row -->
+
+
+
+	</div>
+  </div>
+  <div class="container-narrow">
+  <footer> <p>
+  &copy; 2019 TalkWithKeyboard
+  
+      with help from <a href="http://hexo.io/" target="_blank">Hexo</a>,<a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind</a>,<a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a> and <a href="http://getbootstrap.com/" target="_blank">BOOTSTRA.386</a>. 
+     <br> Theme by <a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind.386</a>.    
+</p>
+ </footer>
+</div> <!-- container-narrow -->
+  
+
+
+  
+<a id="gotop" href="#">   
+  <span>⬆︎TOP</span>
+</a>
+
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/search.js"></script> 
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+
+
+   <script type="text/javascript">      
+     var search_path = "search.xml";
+	 if (search_path.length == 0) {
+	 	search_path = "search.xml";
+	 }
+	 var path = "/" + search_path;
+     searchFunc(path, 'local-search-input', 'local-search-result');
+   </script>
+
+</body>
+   </html>

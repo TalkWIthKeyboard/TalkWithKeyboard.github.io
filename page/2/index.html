@@ -1,0 +1,697 @@
+<!DOCTYPE HTML>
+<html>
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="utf-8">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="cache-control" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  
+  <title>Page 2 | GRYFFONDOR</title>
+  <meta name="author" content="TalkWithKeyboard">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  
+  <meta property="og:site_name" content="GRYFFONDOR">
+
+  
+    <meta property="og:image" content>
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="/css/bootstrap.min.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/font-awesome.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/responsive.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/highlight.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/google-fonts.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+
+  <script src="/js/jquery-2.0.3.min.js"></script>
+
+</head>
+</html>
+ <body>  
+  <nav id="main-nav" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+      <button type="button" class="navbar-header navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+	  <a class="navbar-brand" href="/">GRYFFONDOR</a>
+      <div class="collapse navbar-collapse nav-menu">
+		<ul class="nav navbar-nav">
+		  
+		  <li>
+			<a href="/archives" title="All the articles.">
+			  <i class=""></i>Archives
+			</a>
+		  </li>
+		  
+		  <li>
+			<a href="/atom.xml" title="Subscribe me.">
+			  <i class=""></i>RSS
+			</a>
+		  </li>
+		  
+		</ul>
+      </div>
+    </div> <!-- container -->
+</nav>
+<div class="clearfix"></div>
+
+  <div class="container">
+  	<div class="content">
+    	 <div class="page-header logo">
+  <h1>GRYFFONDOR<span class="blink-fast">∎</span></h1>
+</div>
+
+<div class="row page">
+
+	
+	<div class="col-md-9">
+	
+
+		<div class="slogan">
+
+
+		<i class="fa fa-heart blink-slow"></i>
+
+		「@JIKE」 Data engineer/Code player
+
+</div>    
+
+		<div id="top_search"></div>
+		<div class="mypage">
+		
+		<!-- title and entry -->
+		
+			
+	
+	<!-- display as entry -->
+<div class="row">
+	<div class="col-md-8">
+		<h3 class="title">
+			<a href="/2017/11/02/a10/" >C++编译&amp;&amp;运行</a>
+		</h3>
+		</div>
+	<div class="col-md-4">
+		<div class="date">post @ 2017-11-02  </div>
+		</div>
+	</div>
+	
+
+
+			<div class="entry">
+  <div class="row">
+	
+	
+		<blockquote>
+<p>本文以 <code>UNIX</code> 环境为主，结合一些技术博客和 <code>&lt;&lt;C++ Primer&gt;&gt;</code> 做一些总结和整理。</p>
+<ul>
+<li><a href="http://blog.chinaunix.net/uid-26495963-id-3252608.html" target="_blank" rel="noopener">C/C++程序编译过程</a></li>
+<li><a href="http://www.cnblogs.com/lidabo/archive/2012/04/17/2454568.html" target="_blank" rel="noopener">C++中的头文件和源文件</a></li>
+<li><a href="http://c.biancheng.net/cpp/biancheng/view/134.html" target="_blank" rel="noopener">C++ inline内联函数</a></li>
+</ul>
+</blockquote>
+<h2 id="编译过程"><a href="#编译过程" class="headerlink" title="编译过程"></a>编译过程</h2><h3 id="单文件"><a href="#单文件" class="headerlink" title="单文件"></a>单文件</h3><p>这里的单文件指的是单独的 <code>.cpp/.c</code> 文件，因为 <code>.h</code> 文件只是进行一些变量的声明，是不需要进行编译的。</p>
+<ul>
+<li><p><strong>预处理（预处理器 <code>cpp</code> ）：</strong> 预处理器cpp将对源文件中的宏进行展开</p>
+  <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> gcc -E hello.cpp -o hello.i</span><br><span class="line">// or</span><br><span class="line"><span class="meta">$</span> cpp hello.cpp -o hello.i</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>编译（编译器 <code>gcc/g++</code> ）：</strong> gcc将c文件编译成汇编文件，然后编译成机器码。（编译器将 <code>.i</code> 文件编译成汇编文件 <code>.s</code>）。</p>
+  <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> gcc -S hello.i</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>汇编（汇编器 <code>as</code> ）：</strong> 汇编器将汇编文件编译成机器码 <strong>（可以通过 <code>nm -a hello.o</code> 查看机器码文件）</strong></p>
+  <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> gcc -c hello.s -o hello.o</span><br><span class="line">// or</span><br><span class="line"><span class="meta">$</span> as hello.s -o hello.o</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>链接（连接器 <code>ld</code> ）：</strong> 链接器ld将目标文件和外部符号进行连接，得到一个可执行二进制文件。</p>
+  <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> gcc hello.o -o hello</span><br></pre></td></tr></table></figure>
+
+
+</li>
+</ul>
+<h3 id="头文件"><a href="#头文件" class="headerlink" title="头文件"></a>头文件</h3><p>我们在第一步当中可以看到，这一步的作用就是把宏进行了展开。那么我们的头文件也是在这里被以宏的方式引入到了 <code>hello.cpp</code> 当中。那么我们下面展开介绍一下 <code>#include</code>与头文件中的一些注意事项。</p>
+<h4 id="include"><a href="#include" class="headerlink" title="#include"></a>#include</h4><p><code>#include</code> 是c语言的宏命令，会在第一步（预处理）中起作用。会将后面那个头文件完完整整的引入到当前的文件当中。<strong>而且仅是做替换，而不会有其他的副作用。</strong></p>
+  <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// math.h</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">add</span><span class="params">(<span class="keyword">int</span> a, <span class="keyword">int</span> b)</span></span>;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">del</span><span class="params">(<span class="keyword">int</span> a, <span class="keyword">int</span> b)</span></span>;</span><br></pre></td></tr></table></figure>
+
+
+  <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// main.cpp</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"math.h"</span></span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">int</span> c = add(<span class="number">2</span>, <span class="number">3</span>);</span><br><span class="line">  <span class="keyword">int</span> d = del(<span class="number">3</span>, <span class="number">2</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>经过第一步预处理以后：<br>  <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta"># main.i</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">add</span><span class="params">(<span class="keyword">int</span> a, <span class="keyword">int</span> b)</span></span>;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">del</span><span class="params">(<span class="keyword">int</span> a, <span class="keyword">int</span> b)</span></span>;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">int</span> c = add(<span class="number">2</span>, <span class="number">3</span>);</span><br><span class="line">  <span class="keyword">int</span> d = del(<span class="number">3</span>, <span class="number">2</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>而对于头文件的声明当中 <code>&quot; &quot;</code> 和 <code>&lt; &gt;</code> 是有区别的，如果头文件名在 <code>&lt; &gt;</code> 中，就会被认为是标准头文件。编译器会在预定义的位置查找该头文件，如果是 <code>&quot; &quot;</code> 就认为它是非系统头文件，非系统文件查找通常开始于源文件所在路径。</p>
+<h4 id="头文件保护符"><a href="#头文件保护符" class="headerlink" title="头文件保护符"></a>头文件保护符</h4><p>头文件保护符是为了保证头文件在一个 <code>.cpp</code> 文件当中被多次引用不会出现问题。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// file1.h  </span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">file1</span>  </span></span><br><span class="line"><span class="class">&#123;</span>  </span><br><span class="line">&#125;;  </span><br><span class="line">  </span><br><span class="line"><span class="comment">// file2.h  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"file1.h"</span>  </span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">file2</span>  </span></span><br><span class="line"><span class="class">&#123;</span>  </span><br><span class="line">&#125;;  </span><br><span class="line">  </span><br><span class="line"><span class="comment">// file3.h  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"file1.h"</span>  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"file2.h"</span></span></span><br></pre></td></tr></table></figure>
+
+<p>上面<code>file3.h</code>的代码展开以后就变成了</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// file1.h展开的内容  </span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">file1</span>  </span></span><br><span class="line"><span class="class">&#123;</span>  </span><br><span class="line">&#125;;  </span><br><span class="line"></span><br><span class="line"><span class="comment">// file2.h展开的内容  </span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">file1</span>  </span></span><br><span class="line"><span class="class">&#123;</span>  </span><br><span class="line">&#125;;  </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">file2</span>  </span></span><br><span class="line"><span class="class">&#123;</span>  </span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>class file1</code> 被引用了两次，导致编译器报错。这时就可以加上头文件保护符来解决这个问题。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// file1.h  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> _FILE1_H_  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> _FILE1_H_  </span></span><br><span class="line">  </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">file1</span>  </span></span><br><span class="line"><span class="class">&#123;</span>  </span><br><span class="line">&#125;;  </span><br><span class="line">  </span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span> <span class="comment">// !_FILE1_H_</span></span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// file2.h  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> _FILE2_H_  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> _FILE2_H_  </span></span><br><span class="line">  </span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"file1.h"</span>  </span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">file2</span>  </span></span><br><span class="line"><span class="class">&#123;</span>  </span><br><span class="line">&#125;;  </span><br><span class="line">  </span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span> <span class="comment">// !_FILE2_H_</span></span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// file3.h  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> _FILE3_H_  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> _FILE3_H_  </span></span><br><span class="line">  </span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"file1.h"</span>  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"file2.h"</span>  </span></span><br><span class="line">  </span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span> <span class="comment">// !_FILE3_H_</span></span></span><br></pre></td></tr></table></figure>
+
+<p>这时因为 <code>_FILE1_H_</code> 只出现了一次，就不会出现重定义的问题。</p>
+<h4 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h4><p>头文件中需要区别 <strong>声明</strong> 与 <strong>定义</strong> 两个概念。声明因为不涉及到内存的分配，所以是允许多次出现的，而定义则会进行内存的分配，所以定义只能出现一次。而在头文件中是只允许出现声明和一些特殊的定义的（ 类定义， 值在编译时已知的 <code>const</code> 对象和 <code>inline</code> 函数）</p>
+<ul>
+<li><p>值在编译时就已知的 <code>const</code> 对象：<br>如：<code>const char c = &#39;c&#39;</code> 这个是在编译时就已经确定值的，之后程序不能改变。<br>而 <code>const char *c = &#39;c&#39;</code> 是不可以的，因为指针不是在编译时确定值的。<br>并且全局的 <code>const</code> 对象是没有 <code>extend</code> 的声明的，所以只对当前 <code>.cpp</code> 文件有效。所以将它放在头文件中进行引用后，仅对引用文件有效，而对其他文件不可见。所以不会出现重定义。</p>
+</li>
+<li><p><code>inline</code>：因为在函数的调用执行过程当中，我们需要将实参、局部变量、返回地址以及若干寄存器都压入栈中，然后才能执行函数体中的代码；函数体中的代码执行完毕后还要清理现场，将之前压入栈中的数据都出栈，才能接着执行函数调用位置以后的代码。如果一个运行时间很长的函数，那么这些调用代价也是可以忽略的。不过对于一些简单的函数，这些调用代价是很昂贵的。我们就可以使用 <code>inline</code> 函数，它会像宏定义一样进行代码的替换，而不进行调用过程。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"><span class="function"><span class="keyword">inline</span> <span class="keyword">void</span> <span class="title">swap</span><span class="params">(<span class="keyword">int</span> *a, <span class="keyword">int</span> *b)</span></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> temp;</span><br><span class="line">    temp = *a;</span><br><span class="line">    *a = *b;</span><br><span class="line">    *b = temp;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> m, n;</span><br><span class="line">    <span class="built_in">cin</span>&gt;&gt;m&gt;&gt;n;</span><br><span class="line">    <span class="built_in">cout</span>&lt;&lt;m&lt;&lt;<span class="string">", "</span>&lt;&lt;n&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">    swap(&amp;m, &amp;n);</span><br><span class="line">    <span class="built_in">cout</span>&lt;&lt;m&lt;&lt;<span class="string">", "</span>&lt;&lt;n&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在编译器遇到函数调用 <code>swap(&amp;m, &amp;n)</code> 的时候就会进行替换，并用实参代替形参。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> temp;</span><br><span class="line">temp = *(&amp;m);</span><br><span class="line">*(&amp;m) = *(&amp;n);</span><br><span class="line">*(&amp;n) = temp;</span><br></pre></td></tr></table></figure>
+
+
+</li>
+</ul>
+<ul>
+<li><code>class</code>：对于类的定义成员函数是可以写在定义体内的，这样的话编译器会默认这个函数是 <code>inline</code> 的，也可以声明在定义体内然后在外面进行实现。</li>
+</ul>
+<h3 id="多文件"><a href="#多文件" class="headerlink" title="多文件"></a>多文件</h3><p>多文件互相依赖的情况，只需要先单独将各文件编译成 <code>.o</code> 文件，然后 <code>link</code> 一下就行了。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Circle.h</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> CIRCLE_H  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> CIRCLE_H  </span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Circle</span>  </span></span><br><span class="line"><span class="class">&#123;</span>  </span><br><span class="line">  </span><br><span class="line">&#125;;  </span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">// Circle.cpp</span><br><span class="line">#include &quot;Circle.h&quot;  </span><br><span class="line">  </span><br><span class="line">#include &lt;iostream&gt;  </span><br><span class="line">using namespace std;  </span><br><span class="line"></span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// main.cpp</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"Circle.h"</span>  </span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;  </span></span></span><br><span class="line">  </span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;  </span><br><span class="line">  </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> *argv[])</span>  </span></span><br><span class="line"><span class="function"></span>&#123;  </span><br><span class="line">   ... </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>进行编译：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ g++ -c Circle.cpp -o Circle.o</span><br><span class="line">$ g++ -c main.cpp -o main.o</span><br><span class="line">$ g++ main.o Circle.o -o main</span><br></pre></td></tr></table></figure>
+
+<p>如果有修改，每次只需要对增量文件进行编译就行了。如果项目比较大，可以使用 <code>makefile</code> 文件来进行自动化编译。<strong>（后面会有文章继续介绍 <code>makefile</code> 和其他的自动化编译）</strong></p>
+
+	
+	</div>
+  <a type="button" href="/2017/11/02/a10/#more" class="btn btn-default more">Read More</a>
+</div>
+
+		
+			
+	
+	<!-- display as entry -->
+<div class="row">
+	<div class="col-md-8">
+		<h3 class="title">
+			<a href="/2017/10/24/a12/" >Redux数据流</a>
+		</h3>
+		</div>
+	<div class="col-md-4">
+		<div class="date">post @ 2017-10-24  </div>
+		</div>
+	</div>
+	
+
+
+			<div class="entry">
+  <div class="row">
+	
+	
+		<blockquote>
+<p>本文参考阮一峰老师的文章，着重从数据流的角度分析 <code>redux</code></p>
+<ul>
+<li><a href="http://www.ruanyifeng.com/blog/2016/09/redux_tutorial_part_one_basic_usages.html" target="_blank" rel="noopener">Redux 入门教程（一）：基本用法</a></li>
+<li><a href="http://www.ruanyifeng.com/blog/2016/09/redux_tutorial_part_two_async_operations.html" target="_blank" rel="noopener">Redux 入门教程（二）：中间件与异步操作</a></li>
+<li><a href="http://www.ruanyifeng.com/blog/2016/09/redux_tutorial_part_three_react-redux.html" target="_blank" rel="noopener">Redux 入门教程（三）：React-Redux 的用法</a></li>
+</ul>
+</blockquote>
+<p><img src="http://oj7mt8loy.bkt.clouddn.com/redux.png" alt="redux"></p>
+<h2 id="同步数据流"><a href="#同步数据流" class="headerlink" title="同步数据流"></a>同步数据流</h2><p>参照图例，这是一次用户行为的数据流图。</p>
+<ul>
+<li><p><strong>(1)</strong> 用户操作 <code>View</code>。</p>
+</li>
+<li><p><strong>(2)(3)</strong> <code>View</code> 通过 <code>Action Creator</code> 发出相应的 <code>Action</code>。</p>
+<ul>
+<li><code>Action Creator</code> 就是一个 <code>Action</code> 工厂，统一管理所有的 <code>Action</code>。让代码更好管理，互用性更强。</li>
+</ul>
+</li>
+<li><p><strong>(4)</strong> <code>Store</code> 通过 <code>dispatch</code> 函数获取相应的 <code>Action</code>，并且触发 <code>Reduer</code> 计算新的 <code>State</code>。</p>
+<ul>
+<li><p><code>dispatch</code> 之所以可以自动触发 <code>Reducer</code>，是因为在生成 <code>Store</code> 的时候就已经绑定好了。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; createStore &#125; <span class="keyword">from</span> <span class="string">'redux'</span>;</span><br><span class="line"><span class="keyword">const</span> store = createStore(reducer);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong><code>dispatch</code> 的接口只接收对象。</strong></p>
+</li>
+</ul>
+</li>
+<li><p><strong>(5)</strong> <code>Reduer</code> 接收现在的 <code>State</code>，以及 <code>Action</code>。做出相应的状态变化计算，得到新的 <code>State</code>。并且通过 <code>Store</code> 的 <code>subscibe</code> 监听 <code>State</code> 的变化，并回调对应的 <code>Listener</code> 函数。</p>
+<ul>
+<li><code>Reducer</code> 是状态机的核心，定义了状态转移的计算方法。 <strong>也正是因为这些 <code>Action</code> 是我们手动绑定并进行处理，保证了数据流的单向性。</strong></li>
+<li>当然对于比较繁琐的 <code>Reducer</code> 的设计也有更好的设计模式，比如提供了 <code>combineReducers</code> 函数，详细用法可见阮一峰老师的文档。</li>
+<li>对应的 <code>Listener</code> 函数也是在申明的时候已经做好了绑定。  <figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123; createStore &#125; <span class="keyword">from</span> <span class="string">'redux'</span>;</span><br><span class="line"><span class="keyword">const</span> store = createStore(reducer);</span><br><span class="line"></span><br><span class="line">store.subscribe(listener);</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+</li>
+<li><p><strong>(6)</strong> 在 <code>Listener</code> 中获取现在的 <code>State</code> 并用它重新渲染 <code>View</code>。</p>
+<ul>
+<li>可以通过 <code>store.getState()</code> 获取现在的 <code>State</code>。<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">listerner</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">let</span> newState = store.getState();</span><br><span class="line">  component.setState(newState);   </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="异步数据流"><a href="#异步数据流" class="headerlink" title="异步数据流"></a>异步数据流</h2><p>由于 <code>Redux</code> 中 <code>store.dispatch</code> 的接口要求很严格，只能传递对象类型的 <code>Action</code>，所以这里我们需要先引入中间件来完成我们理想的设计。</p>
+<h3 id="中间件"><a href="#中间件" class="headerlink" title="中间件"></a>中间件</h3><ul>
+<li><strong>(4)</strong> 在原第4步过程的基础上，我们引入中间件。 <code>Action</code> 会先被中间件逐步拦截处理以后传递给 <code>Reducer</code>。并且多个中间件是支持通过 <code>applyMiddlewares()</code> 函数来连接在一起。</li>
+</ul>
+<h3 id="异步实现"><a href="#异步实现" class="headerlink" title="异步实现"></a>异步实现</h3><ul>
+<li><p><strong>(3)</strong> 异步数据流首先对传统的仅发送对象的 <code>Action</code> 做了修改，这里发送函数类型的 <code>Action</code>，在这个返回函数当中先发送了一个异步开始的对象 <code>Action</code> ，在结束的时候再发送异步成功/失败的对象 <code>Action</code>。</p>
+<blockquote>
+<p>这里是我纠结比较久的地方，最开始我很不能接受这种将IO操作放在 <code>Action</code> 里的设计，因为我觉得像这样的数据处理相关的操作是应该放在 <code>Reducer</code> 里的。后来我和室友讨论了以后，有了一些新的想法：</p>
+<ul>
+<li>首先异步操作是应该被放在网络层（或者叫IO层），而 <code>Reducer</code> 是担任数据计算的任务，所以把异步操作放在 <code>Reducer</code> 里也是一种不适当的分层。</li>
+<li>然后因为 <code>Creator</code> 的任务本来就很轻松，只用生成一些 <code>Action</code> 对象，所以这边把网络层放入其中也比较合适。</li>
+<li>最后这种设计其实也没有和最初的思想违背，<code>Creator</code> 还是只是生成一些 <code>Action</code>，而并没有执行这些 <code>Action</code>。</li>
+</ul>
+<p><strong>以上只是个人看法，欢迎拍砖讨论。</strong></p>
+</blockquote>
+</li>
+<li><p>至于实现的方案就有很多了，比如阮一峰老师文章里的 <code>redux-thunk</code> 和 <code>redux-promise</code>，还有现在比较流行的基于 <code>Generator</code> 的 <code>redux-sage</code>。这里就不一一赘述。</p>
+</li>
+</ul>
+<h2 id="React-Reduce"><a href="#React-Reduce" class="headerlink" title="React-Reduce"></a>React-Reduce</h2><p>当直接使用 <code>React-Reduce</code> 的时候，需要按照规定的范式将组件拆分为 <code>UI组件</code> 和 <code>容器组件</code>。详细可见阮一峰老师的文档，这里主要介绍使用了 <code>React-Reduce</code> 以后对于我们的数据流有哪些影响。</p>
+<ul>
+<li><p><strong>(1)(2)</strong> 通过 <code>mapDispatchToProps</code> 函数，可以设置哪些用户的操作会被当做 <code>Action</code>，并且当做哪个 <code>Action</code> 传递给 <code>Store</code>，也就是我们不需要在第一步中 Hard code 一些动作到 <code>Action</code> 的代码。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> mapDispatchToProps = (</span><br><span class="line">  dispatch,</span><br><span class="line">  ownProps</span><br><span class="line">) =&gt; &#123;</span><br><span class="line">  <span class="keyword">return</span> &#123;</span><br><span class="line">    onClick: <span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">      dispatch(&#123;</span><br><span class="line">        type: <span class="string">'SET_VISIBILITY_FILTER'</span>,</span><br><span class="line">        filter: ownProps.filter</span><br><span class="line">      &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>(6)</strong> 通过 <code>mapStateToProps</code> 函数，可以进行 <code>State</code> 到 <code>UI组件</code> 的 <code>prop</code> 的映射。并对 <code>View</code> 进行重新渲染，也就是说我们不需要在第6步当中再写一些获取现在 <code>State</code> 做渲染的工作。<strong>（非常适合做一些过滤、分析、或者担任数据的组织层）</strong></p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> mapStateToProps = <span class="function">(<span class="params">state</span>) =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">return</span> &#123;</span><br><span class="line">    todos: getVisibleTodos(state.todos, state.visibilityFilter)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+</li>
+</ul>
+  <figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 根据是否完成进行过滤</span></span><br><span class="line"><span class="keyword">const</span> getVisibleTodos = <span class="function">(<span class="params">todos, filter</span>) =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">switch</span> (filter) &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">'SHOW_ALL'</span>:</span><br><span class="line">      <span class="keyword">return</span> todos</span><br><span class="line">    <span class="keyword">case</span> <span class="string">'SHOW_COMPLETED'</span>:</span><br><span class="line">      <span class="keyword">return</span> todos.filter(<span class="function"><span class="params">t</span> =&gt;</span> t.completed)</span><br><span class="line">    <span class="keyword">case</span> <span class="string">'SHOW_ACTIVE'</span>:</span><br><span class="line">      <span class="keyword">return</span> todos.filter(<span class="function"><span class="params">t</span> =&gt;</span> !t.completed)</span><br><span class="line">    <span class="keyword">default</span>:</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">Error</span>(<span class="string">'Unknown filter: '</span> + filter)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+	
+	</div>
+  <a type="button" href="/2017/10/24/a12/#more" class="btn btn-default more">Read More</a>
+</div>
+
+		
+			
+	
+	<!-- display as entry -->
+<div class="row">
+	<div class="col-md-8">
+		<h3 class="title">
+			<a href="/2017/09/14/a11/" >一次多进程优化实践</a>
+		</h3>
+		</div>
+	<div class="col-md-4">
+		<div class="date">post @ 2017-09-14  </div>
+		</div>
+	</div>
+	
+
+
+			<div class="entry">
+  <div class="row">
+	
+	
+		<p>我们先从最近手里的一个项目说起，其实这个项目的需求很简单：<strong>从多数据源抓取数据，进行数据整合以后分别存入到不同的数据库中。当然不同数据库存储的数据结构是不一样的，但是也只是对数据源 attribute 的重新过滤组合而已。</strong></p>
+<p>当每一份数据的体量以及整个数据的体量变得很大的时候，系统的实时性大大降低（因为在数据库的另一端是有客户端等着将数据进行可视化展示的），这个时候我就不得不好好审视一下我的代码结构了。早先在设计的时候，因为没有考虑到数据这么大的体量，并且为了增强日志文件的可读性和一些客观限制，我没有选择大量的异步并发。</p>
+<blockquote>
+<p>为了后面描述比较方便，我先罗列一下这些客观限制： </p>
+</blockquote>
+<blockquote>
+<ul>
+<li><code>Azure Cosmos DB</code> 是对并发数量有限制的，大概在 <code>20次/s</code> 的时候会发出警告。</li>
+<li><code>Azure Cosmos DB</code> 是对 <code>Stored Procedure</code> 的 <code>request body</code> 以及 <code>response body</code> 有限制的。</li>
+<li><code>Node</code> 的异步数量是存在限制的，数据库连接数也是存在限制的。</li>
+</ul>
+</blockquote>
+<h2 id="初步模型"><a href="#初步模型" class="headerlink" title="初步模型"></a>初步模型</h2><p>单进程单线程同步跑任务，这个速度肯定是我们接受不了的。那我们开始优化我们的架构。对于这种多数据源多任务的场景，<strong>生产者消费者</strong> 的行为模式作为基础应该是最合适不过了。这样我们就可以把业务逻辑完全解耦为：</p>
+<ul>
+<li>生产者从数据源抓数据整理为 <strong>数据单元</strong> 放到缓存队列。</li>
+<li>消费者从缓存队列拿出 <strong>数据单元</strong> 进行处理。</li>
+</ul>
+<p>解耦完成后，我们对这两部分一一的审视。这样单一性的任务我们能很好的进行多线程、多进程的处理，这里我选择在生产者的 <strong>单一数据源</strong> ，消费者的 <strong>文件－数据库（一个数据源会产生多个文件，每份文件要存储到多个数据库，这里的意思是一个文件存储到一个数据库）</strong> 粒度上选择多进程处理。</p>
+<ul>
+<li>生产者</li>
+</ul>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> cluster = <span class="built_in">require</span>(<span class="string">'cluster'</span>);</span><br><span class="line"><span class="keyword">const</span> cpuNum = <span class="built_in">require</span>(<span class="string">'os'</span>).cpus().length;</span><br><span class="line"><span class="keyword">const</span> redis = <span class="built_in">require</span>(<span class="string">'redis'</span>);</span><br><span class="line"><span class="keyword">const</span> sourceList = [...];</span><br><span class="line"><span class="keyword">const</span> sourceIndex = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (cluster.isMaster) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; cpuNum; i++) &#123;</span><br><span class="line">        cluster.fork();</span><br><span class="line">    &#125;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (sourceIndex &lt; sourceList.length) &#123;</span><br><span class="line">        <span class="comment">// 选择数据源</span></span><br><span class="line">        <span class="keyword">let</span> source = sourceList[++sourceIndex];</span><br><span class="line">        <span class="comment">// 抓数据并过滤成对象，存入redis</span></span><br><span class="line">        <span class="keyword">let</span> dataObj = catchAndParser(source);</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>消费者</li>
+</ul>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> cluster = <span class="built_in">require</span>(<span class="string">'cluster'</span>);</span><br><span class="line"><span class="keyword">const</span> cpuNum = <span class="built_in">require</span>(<span class="string">'os'</span>).cpus().length;</span><br><span class="line"><span class="keyword">const</span> redis = <span class="built_in">require</span>(<span class="string">'redis'</span>);</span><br><span class="line"><span class="keyword">const</span> worker = <span class="built_in">require</span>(<span class="string">'./worker'</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> workers = &#123;</span><br><span class="line">    mssql: worker.mssql,</span><br><span class="line">    documentdb: worker.documentdb,</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (cluster.isMaster) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; cpuNum; i++) &#123;</span><br><span class="line">        cluster.fork();</span><br><span class="line">    &#125;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// 从redis里取任务</span></span><br><span class="line">    <span class="keyword">let</span> task = getTaskFromRedis();</span><br><span class="line">    <span class="comment">// 进行数据重组以及存储</span></span><br><span class="line">    worker[task.type](task);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样我们会发现我们起的进程数达到 <code>CUP</code> 的两倍了，其实这边可以自己根据任务是否会吃满 <code>CUP</code> ，会吃多少，并结合进程切换的时间以及内存问题来调整进程数量。到现在我们完成了我们的初步模型，但是有一个很麻烦的问题暴露在了我们面前，我们现在的逻辑没有去维护连接池，也就是说我们会在 <code>Worker</code> 进程中让它自己去进行连接，完成任务再断开连接。这样显然也是我们不希望去看到的。</p>
+<h2 id="连接池"><a href="#连接池" class="headerlink" title="连接池"></a>连接池</h2><p>最初我有两种设想：</p>
+<ul>
+<li>在主进程建立连接池，然后所有 <code>Worker</code> 需要连接的时候就去这个地方取来用。</li>
+<li>在每一个进程当中去维护自己的连接池。</li>
+</ul>
+<p>思来想去，咨询前辈后发现第一种想法有点太傻了。先不说父子进程间监听 <code>socket</code> 的问题，光是子进程对取回来的连接进行复用这一点上也是对性能的浪费。所以当然是每个进程维护自己的连接池比较好，这样不论是多线程还是异步的情况下，都能不让连接成为性能的瓶颈。</p>
+<p>在实现上，我们需要放在全局声明连接池，这样因为子进程是 <code>fork</code> 出去的，也会在自己的进程当中声明连接池。完成了我们每个进程一个连接池的目的。</p>
+<p>参考：<a href="https://stackoverflow.com/questions/24339179/nodejs-cluster-with-mysql-connections" target="_blank" rel="noopener">Nodejs Cluster with MySQL connections</a></p>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> cluster = <span class="built_in">require</span>(<span class="string">'cluster'</span>);</span><br><span class="line"><span class="keyword">var</span> http = <span class="built_in">require</span>(<span class="string">'http'</span>);</span><br><span class="line"><span class="keyword">var</span> numCPUs = <span class="built_in">require</span>(<span class="string">'os'</span>).cpus().length;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> mysql = <span class="built_in">require</span>(<span class="string">'mysql'</span>);</span><br><span class="line"><span class="keyword">var</span> pool  = mysql.createPool(&#123;</span><br><span class="line">   connectionLimit : <span class="number">10</span>,</span><br><span class="line">   host            : <span class="string">'example.org'</span>,</span><br><span class="line">   user            : <span class="string">'bob'</span>,</span><br><span class="line">   password        : <span class="string">'secret'</span></span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (cluster.isMaster) &#123;</span><br><span class="line">    ...</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="数据库层面"><a href="#数据库层面" class="headerlink" title="数据库层面"></a>数据库层面</h2><p>其实我们在数据库层面的操作也比较简单：</p>
+<ul>
+<li>根据某个字段获取数据库里的内容（避免设计子增主键的部分重复存储）</li>
+<li>批量存储</li>
+</ul>
+<h3 id="批量存储"><a href="#批量存储" class="headerlink" title="批量存储"></a>批量存储</h3><p>可以看到性能瓶颈的地方就在第二点，这里不同的数据库就会有不同的支持。对于 <code>Documentdb</code>，可以将批量数据封装成数组全部丢给 <code>Stored procedure</code> ，但其实 <code>Stored procedure</code> 中也是一个一个数据存入数据库中。（这里与数据库是多线程还是单线程有关，后面会去研究一下 <code>Documentdb</code> 的底层再来补坑）。对于前面提到的客观条件1、2，其实是可以把数据包分包再异步，如果并发数量超过限制再使用队列管理异步。<strong>参考：<a href="https://docs.microsoft.com/en-us/azure/cosmos-db/programming" target="_blank" rel="noopener">Azure Cosmos DB server-side programming: Stored procedures</a></strong></p>
+<p>而对于 <code>Sql server</code>，就可以选择用 <code>bulk</code> 还是 <code>insert</code> 的 <code>sql</code> 语句中 <code>OPENROWSET(BULK...)</code> 选项都是可行的，但是从代码组织来看用 <code>bulk</code> 是更好的选择。 <strong>参考：<a href="https://docs.microsoft.com/zh-cn/sql/relational-databases/import-export/import-bulk-data-by-using-bulk-insert-or-openrowset-bulk-sql-server" target="_blank" rel="noopener">使用 BULK INSERT 或 OPENROWSET(BULK…) 导入批量数据</a></strong></p>
+<h3 id="批量查找"><a href="#批量查找" class="headerlink" title="批量查找"></a>批量查找</h3><p>数量较少时，我觉得放在服务器端异步并发比较好。数量比较多时就把任务交给服务器端的 <code>Stored procedure</code> 处理。比较麻烦的是， <code>Sql server</code> 的 <strong>SP</strong> 是不接受数组的，可以通过字符串操作分隔符来模拟数组。<strong>参考：<a href="http://www.cnblogs.com/HeroTan/p/4817288.html" target="_blank" rel="noopener">sql server 模拟数组</a></strong></p>
+<hr>
+<p><strong>2017年9月21日更新</strong></p>
+<blockquote>
+<p>上一次的文章当中有一些地方有错误的地方和一些需要完善的地方，这边进行指出并更新。</p>
+</blockquote>
+<h2 id="错误"><a href="#错误" class="headerlink" title="错误"></a>错误</h2><p>生产者的伪代码中直接使用了数组来分发数据源的方法是完全错误的，其实每个进程都会拷贝一份代码去执行，这种方法需要让每个进程中去共享 <code>sourceIndex</code> 才能够实现。而我们这边的子进程是通过父进程 <code>fork</code> 所得，所以需要在父进程来维护 <code>sourceIndex</code>，分发给子进程。或者也直接使用消息队列来实现这一部分的功能。</p>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> cluster = <span class="built_in">require</span>(<span class="string">'cluster'</span>);</span><br><span class="line"><span class="keyword">const</span> cpuNum = <span class="built_in">require</span>(<span class="string">'os'</span>).cpus().length;</span><br><span class="line"><span class="keyword">const</span> redis = <span class="built_in">require</span>(<span class="string">'redis'</span>);</span><br><span class="line"><span class="keyword">const</span> sourceList = [...];</span><br><span class="line"><span class="keyword">const</span> sourceIndex = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (cluster.isMaster) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; cpuNum; i++) &#123;</span><br><span class="line">        <span class="keyword">let</span> worker = cluster.fork();</span><br><span class="line">        worker.send(sourceList[sourceIndex]);</span><br><span class="line">        sourceindex++;</span><br><span class="line">    &#125;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    process.on(<span class="string">'message'</span>, <span class="function">(<span class="params">source</span>) =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">let</span> dataObj = catchAndParser(source);</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="完善"><a href="#完善" class="headerlink" title="完善"></a>完善</h2><p><code>rsmq</code> 是一个基于 <code>redis</code> 封装好的消息队列的库，使用起来也比较方便。唯一不太好的地方是没有封装 <strong>循环队列</strong> ，这使得场景下处理起来比较麻烦。比如我现在的任务是循环不变的，做完了又重头做。</p>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> cluster = <span class="built_in">require</span>(<span class="string">'cluster'</span>);</span><br><span class="line"><span class="keyword">const</span> cpuNum = <span class="built_in">require</span>(<span class="string">'os'</span>).cpus().length;</span><br><span class="line"><span class="keyword">const</span> rsmq = <span class="built_in">require</span>(<span class="string">'rsmq'</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> worker = <span class="keyword">async</span> (worker, process) =&gt; &#123;</span><br><span class="line">    <span class="comment">// 封装好的promise对象</span></span><br><span class="line">    <span class="keyword">let</span> task = <span class="keyword">await</span> rsmq.receiveMessage(<span class="string">'qName'</span>);</span><br><span class="line">    <span class="keyword">if</span> (!task) &#123;</span><br><span class="line">        worker.send(<span class="string">'finished'</span>);</span><br><span class="line">        process.kill();</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// 执行任务</span></span><br><span class="line">        ...</span><br><span class="line">        process.kill();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (cluster.isMaster) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; cpuNum; i++) &#123;</span><br><span class="line">        cluster.fork();</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    cluster.on(<span class="string">'exit'</span>, <span class="function">(<span class="params">worker, code, signal</span>) =&gt;</span> &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(<span class="string">'Worker '</span> + worker.process.pid + <span class="string">' died with code: '</span> + code + <span class="string">', and signal: '</span> + signal);</span><br><span class="line">        <span class="built_in">console</span>.log(<span class="string">'Starting a new worker'</span>);</span><br><span class="line">        <span class="comment">// 退出后重启进程</span></span><br><span class="line">        cluster.fork();</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    cluster.on(<span class="string">'message'</span>, <span class="function">(<span class="params">msg</span>) =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (msg === <span class="string">'finished'</span>) &#123;</span><br><span class="line">            <span class="comment">// 关闭退出重启cluster.removeAllListener('exit');</span></span><br><span class="line">            <span class="comment">// 重新填充数据源</span></span><br><span class="line">            ...</span><br><span class="line">            <span class="comment">// 重新启动所有进程</span></span><br><span class="line">            <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; cpuNum; i++) &#123;</span><br><span class="line">                cluster.fork();</span><br><span class="line">            &#125;</span><br><span class="line">            </span><br><span class="line">            cluster.on(<span class="string">'exit'</span>, <span class="function">(<span class="params">worker, code, signal</span>) =&gt;</span> &#123;</span><br><span class="line">                <span class="built_in">console</span>.log(<span class="string">'Worker '</span> + worker.process.pid + <span class="string">' died with code: '</span> + code + <span class="string">', and signal: '</span> + signal);</span><br><span class="line">                <span class="built_in">console</span>.log(<span class="string">'Starting a new worker'</span>);</span><br><span class="line">                <span class="comment">// 退出后重启进程</span></span><br><span class="line">                cluster.fork();</span><br><span class="line">            &#125;);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">    &#125;)</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    worker(cluster.worker, process);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>当然这种实现只是一个思路，而且不是特别好，因为每次做完任务之后都需要重启一个 <code>worker</code> 进程，可以长期保持几个固定的进程，主进程通过通信来分发任务。不用浪费资源去重启进程。</strong></p>
+<h2 id="补充"><a href="#补充" class="headerlink" title="补充"></a>补充</h2><ul>
+<li>在一个场景下，我希望使用前台的开关来控制我后台的进程。这种时候因为 <code>fork</code> 进程的句柄在打开开关的那个进程中，我无法在后面关闭的进程当中获取。所以其实可以在启动进程的时候，将进程号发送到消息队列中，关闭时进行关闭。（我这里描述的场景是一个开关同时控制多个任务，如果一个开关控制一个还是直接以任务名做 <code>key</code>， 进程号作为 <code>value</code> 存入 <code>redis</code> 中比较好）</li>
+<li>通过 <code>fork</code> 出来的子进程，<code>stdin</code>, <code>stdout</code>, <code>stderr</code> 三个流都会复制父进程，如果需要重定向，需要在 <code>fork</code> 时进行配置。</li>
+</ul>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> cp = <span class="built_in">require</span>(<span class="string">'child_process'</span>);</span><br><span class="line"><span class="keyword">const</span> fs = <span class="built_in">require</span>(<span class="string">'fs'</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> main = <span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">let</span> worker = cp.fork(<span class="string">'./test.js'</span>, &#123; silent: <span class="literal">true</span> &#125;);</span><br><span class="line">  <span class="keyword">let</span> fileStream = fs.createWriteStream(<span class="string">'./output'</span>);</span><br><span class="line"></span><br><span class="line">  worker.stdout.pipe(fileStream);</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">main();</span><br></pre></td></tr></table></figure>
+	
+	</div>
+  <a type="button" href="/2017/09/14/a11/#more" class="btn btn-default more">Read More</a>
+</div>
+
+		
+			
+	
+	<!-- display as entry -->
+<div class="row">
+	<div class="col-md-8">
+		<h3 class="title">
+			<a href="/2017/08/16/a7/" >Mongoose Schema</a>
+		</h3>
+		</div>
+	<div class="col-md-4">
+		<div class="date">post @ 2017-08-16  </div>
+		</div>
+	</div>
+	
+
+
+			<div class="entry">
+  <div class="row">
+	
+	
+		<h2 id="Schema-Type"><a href="#Schema-Type" class="headerlink" title="Schema Type"></a>Schema Type</h2><ul>
+<li>String</li>
+<li>Number</li>
+<li>Date</li>
+<li>Buffer</li>
+<li>Boolean</li>
+<li>Mixed</li>
+<li>Decimal Type <strong>(在3.4中新增，最多支持34位小数，并且存储的是实际值而不是浮点数)</strong></li>
+<li>Object</li>
+<li>Objectid</li>
+<li>Array</li>
+</ul>
+<h2 id="Usage-notes"><a href="#Usage-notes" class="headerlink" title="Usage notes"></a>Usage notes</h2><h3 id="Date"><a href="#Date" class="headerlink" title="Date"></a>Date</h3><figure class="highlight plain"><figcaption><span>内建的 ```Date``` 方法没有被纳入 ```Mongoose``` 。所以如果使用像 ```setMonth``` 这样的方法是不会执行的，如果一定要使用需要通过 ```markModified``` 方法告诉 ```Mongoose``` 。</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>var Assignment = mongoose.model(‘Assignment’, { dueDate: Date });<br>Assignment.findOne(function (err, doc) {<br>  doc.dueDate.setMonth(3);<br>  doc.save(callback); // THIS DOES NOT SAVE YOUR CHANGE</p>
+<p>  doc.markModified(‘dueDate’);<br>  doc.save(callback); // works<br>})</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">### Mixed</span><br><span class="line">当改变了 Mixed 元素的结构类型时，需要通过 ```markModified``` 函数告诉 ```Mongoose``` 后才会自动生效。</span><br></pre></td></tr></table></figure>
+
+<p>person.anything = { x: [3, 4, { y: “changed” }] };<br>person.markModified(‘anything’);<br>person.save(); // anything will now get saved</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">### ObjectId</span><br><span class="line">声明时需要使用 ```Schema.Types.ObjectId```。</span><br><span class="line"></span><br><span class="line">### Arrays</span><br><span class="line">当将元素声明为 ```Array``` 以后，默认值会是空数组 ```[]```，如果想修复这个问题，需要添加 ```default``` 属性。被声明为 ```Array``` 的元素如果被指定为 ```required``` ，那么至少需要一个元素在其中。</span><br><span class="line"></span><br><span class="line">## Schema Type handle definition</span><br><span class="line">在 ```Schmea``` 中对于每一个元素都有一些定义好的属性供开发者使用。可以直接定义也可以通过 ```path``` 定义。</span><br></pre></td></tr></table></figure>
+
+<p>// directly<br>var schema = new Schema({<br>  test: {<br>    type: String,<br>    lowercase: true<br>  }<br>});</p>
+<p>// use path<br>var schema2 = new Schema({test: String});</p>
+<p>schema2.path(test).lowercase(true);</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">### Common</span><br><span class="line">+ **default(val)** </span><br><span class="line"></span><br><span class="line">    这个属性就是为元素添加默认值，只要在修改之前都会是这个值。</span><br><span class="line">    对于文档里提到的对于 ```mixed``` 属性，如果不设置特殊的函数返回默认值，那么多个实例会指向第一个实例。但是我在 ```4.11.7``` 版本测试，这个问题已经得到修复。</span><br><span class="line">    </span><br><span class="line">+ **validate(obj, [errorMsg], [type])** </span><br><span class="line">    </span><br><span class="line">    为元素添加检验器，来检验输入的值是否符合要求。第一个参数是检验器，支持 ```RegExp```, ```Function```, ```Object```。正则表达式可以进行最简单的字面检验，函数可以进行较为复杂的逻辑检验，对象可以支持多个检验器的组合，并且可以携带错误信息。</span><br></pre></td></tr></table></figure>
+
+<pre><code>var many = [
+    { validator: validator, msg: &apos;uh oh&apos; }
+  , { validator: anotherValidator, msg: &apos;failed&apos; }
+]
+new Schema({ name: { type: String, validate: many }});
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">更加细节的是，错误信息可以自定义，当然如果没有自定义，内部为准备了一些错误信息模板。自定义错误信息中可以使用模板来获得一些内部属性。</span><br><span class="line"></span><br><span class="line">+ **&#123;PATH&#125; :** 非法的 document path</span><br><span class="line">+ **&#123;VALUE&#125; :** 非法的值</span><br><span class="line">+ **&#123;TYPE&#125; :** 检验器的类型，比如 ```Regexp```, ```min```, ```user defined</span><br></pre></td></tr></table></figure>
+
++ **{MIN} :** 检验器设定的最大值
++ **{Max} :** 检验器设定的最小值
+
+同时也提供了异步检验器，可以通过设置 <figure class="highlight plain"><figcaption><span>属性来告诉 ```Mongoose``` 这是一个异步检验器。在回调中需要返回 ```true``` 或者 ```false``` 来告诉检验器是否成功。**（利用这个属性可以方便的写一个如果不存在则存入数据库的逻辑。）** 这个方法会在 ```save``` 动作之前执行，如果需要的话也可以自己进行[调用](http://mongoosejs.com/docs/api.html#document_Document-validate)，```document.validate(function(err)&#123;&#125;)```。 如果在 ```save``` 之前检验器失败，但是没有错误处理的话，异常会被先抛到 ```Model``` 再到 ```db connection``` ，可以通过监听 ```error``` 捕获。    </span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">+ **get(fn)** </span><br><span class="line"></span><br><span class="line">    为元素添加返回转换器，可以对元素的内容进行转换以后再返回。转换函数中可以接受两个值，第一个是需要过滤的参数，第二个是这个元素对应的 ```SchemaType```，可以使用```SchemaType``` 来定制一些功能。官方文档中举了一个日期处理和信用卡卡号隐藏中间几位数字的例子，还是蛮实用的。</span><br></pre></td></tr></table></figure></code></pre><p>   function inspector (val, schematype) {<br>      if (schematype.options.required) {<br>        return schematype.path + ‘ is required’;<br>      } else {<br>        return schematype.path + ‘ is not’;<br>      }<br>    }</p>
+<pre><code>var VirusSchema = new Schema({
+  name: { type: String, required: true, get: inspector },
+  taxonomy: { type: String, get: inspector }
+})
+
+var Virus = db.model(&apos;Virus&apos;, VirusSchema);
+
+Virus.findById(id, function (err, virus) {
+  console.log(virus.name);     // name is required
+  console.log(virus.taxonomy); // taxonomy is not
+})
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">+ **set(fn)**</span><br><span class="line"></span><br><span class="line">     为元素添加保存转换器，先将元素转换成相应格式以后再存入数据库。同样定义 ```get``` 方法， ```set``` 方法的转换函数也支持两个参数，第一个是需要过滤的参数，第二个是这个元素对应的 ```SchemaType```，可以使用```SchemaType``` 来定制一些功能。</span><br><span class="line">    </span><br><span class="line">+ **select(bool)**   </span><br><span class="line">     </span><br><span class="line">     用来决定该元素是否要包含在搜索结果当中，但是这个属性会被 ```query``` 级别的声明覆盖。</span><br></pre></td></tr></table></figure>
+
+T = db.model(&apos;T&apos;, new Schema({ x: { type: String, select: true }}));
+T.find(..); // field x will always be selected ..
+// .. unless overridden;
+T.find().select(&apos;-x&apos;).exec(callback);
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">     </span><br><span class="line">+ **index(options)**</span><br><span class="line">    </span><br><span class="line">    来定义是否为该元素添加索引，支持 ```Object```, ```Boolean```, ```String```， ```Object``` 用来定义复合索引。**（先留flag，后面会来填MongoDB index的相关问题）**</span><br><span class="line">    </span><br><span class="line">+ **required(required, [options.isRequired], [options.ErrorConstructor], [message])**</span><br><span class="line"></span><br><span class="line">    为元素添加存在检查器，算是检查器的一个特例，所以同样有错误信息等。并且 ```required``` 属性同样支持函数来自定义存在检查，如果没有进行自定义那么 ```Mongoose``` 会检查这个元素的值是否等于 ```null``` 或者 ```undefined``` 来判断是否存在。**（但是这边的自定义功能感觉和 ```validate``` 有点冗余）**</span><br><span class="line">    </span><br><span class="line">+ **sparse(bool)**</span><br><span class="line"></span><br><span class="line">    为元素添加稀疏索引。**作用是当该元素为空是不进入索引。**</span><br><span class="line">    </span><br><span class="line">+ **unique(bool)**</span><br><span class="line"></span><br><span class="line">    为元素添加唯一索引。**作用是只允许一条索引字段为空的记录存在，之后就不允许插入了。再次插入 记录时会报错。**    </span><br><span class="line">    </span><br><span class="line">+ **text(bool)**</span><br><span class="line"></span><br><span class="line">    为元素添加全文索引。**（全文索引的坑下次和符合索引一起填。）**    </span><br><span class="line">    </span><br><span class="line">### String</span><br><span class="line"></span><br><span class="line">+ **checkRequired(value, doc)**</span><br><span class="line">    </span><br><span class="line">    对于 ```String``` 属性特殊定制的 ```required``` 属性，```required``` 会直接调用字符串的 ```checkRequired``` 方法。会针对字符串，不仅检查是否为空，还会检查长度、类型和原型链，空字符串会被判 ```fail``` 。</span><br><span class="line">    </span><br><span class="line">+ **enum([args...])** </span><br><span class="line"></span><br><span class="line">    一种特殊的检查器，会检查输入的字符串是否在规定的串中，同样有错误信息。</span><br></pre></td></tr></table></figure>
+
+var states = [&apos;opening&apos;, &apos;open&apos;, &apos;closing&apos;, &apos;closed&apos;]
+var s = new Schema({ state: { type: String, enum: states }})
+var M = db.model(&apos;M&apos;, s)
+var m = new M({ state: &apos;invalid&apos; })
+m.save(function (err) {
+  console.error(String(err)) // ValidationError: `invalid` is not a valid enum value for path `state`.
+  m.state = &apos;open&apos;
+  m.save(callback) // success
+})
+
+// or with custom error messages
+var enum = {
+  values: [&apos;opening&apos;, &apos;open&apos;, &apos;closing&apos;, &apos;closed&apos;],
+  message: &apos;enum validator failed for path `{PATH}` with value `{VALUE}`&apos;
+}
+var s = new Schema({ state: { type: String, enum: enum })
+var M = db.model(&apos;M&apos;, s)
+var m = new M({ state: &apos;invalid&apos; })
+m.save(function (err) {
+  console.error(String(err)) // ValidationError: enum validator failed for path `state` with value `invalid`
+  m.state = &apos;open&apos;
+  m.save(callback) // success
+})
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line">    </span><br><span class="line">+ **lowercase(bool)**</span><br><span class="line"></span><br><span class="line">    一种特殊的 ```set``` 属性，会将输入的字符串全部转为小写之后再存入数据库。</span><br><span class="line">    </span><br><span class="line">+ **uppercase(bool)**    </span><br><span class="line">   </span><br><span class="line">   一种特殊的 ```set``` 属性，会将输入的字符串全部转为大写之后再存入数据库。   </span><br><span class="line">    </span><br><span class="line">+ **match(regExp, [message])**</span><br><span class="line">    </span><br><span class="line">    一种特殊的检查器，会检查输入的字符串是否满足正则表达式。空字符串和 ```null``` 会通过这个检查器，所以如果要过滤这些特殊情况还需要添加 ```required``` 属性。</span><br><span class="line">    </span><br><span class="line">+ **maxlength(value, [message])**</span><br><span class="line">    </span><br><span class="line">    一种特殊的检查器，会检查输入的字符串的长度是否比阈值小。会对应错误信息模板中的 ```&#123;MAXLENGTH&#125;``` 。</span><br><span class="line">    </span><br><span class="line">+ **minlength(value, [message])**   </span><br><span class="line">        </span><br><span class="line">    一种特殊的检查器，会检查输入的字符串的长度是否比阈值大。会对应错误信息模板中的 ```&#123;MINLENGTH&#125;``` 。</span><br><span class="line">    </span><br><span class="line">+ **trim(bool)**    </span><br><span class="line">    </span><br><span class="line">    一种特殊的 ```set``` 属性，会将输入字符串先修剪两端的空格再存入数据库。</span><br><span class="line">    </span><br><span class="line">### Number</span><br><span class="line">    </span><br><span class="line">+ **checkRequired(value, doc)**</span><br><span class="line">    </span><br><span class="line">    对于 ```Number``` 属性特殊定制的 ```required``` 属性，```required``` 会直接调用字符串的 ```checkRequired``` 方法。不仅检查是否为 ```null``` 还会检查类型和原型链。</span><br><span class="line"></span><br><span class="line">+ **max(maximum, [message])**</span><br><span class="line"></span><br><span class="line">    一种特殊的检查器，会检查输入的数字是否比阈值小。会对应错误信息模板中的 ```&#123;MAX&#125;``` 。</span><br><span class="line">    </span><br><span class="line">+ **min(value, [message])**</span><br><span class="line"></span><br><span class="line">    一种特殊的检查器，会检查输入的数字是否比阈值大。会对应错误信息模板中的 ```&#123;MIN&#125;``` 。</span><br><span class="line">    </span><br><span class="line">### Date</span><br><span class="line">    </span><br><span class="line">+ **checkRequired(value, doc)**</span><br><span class="line">    </span><br><span class="line">    对于 ```Date``` 属性特殊定制的 ```required``` 属性，```required``` 会直接调用字符串的 ```checkRequired``` 方法。不仅检查是否为 ```null``` 还会检查类型和原型链。</span><br><span class="line">    </span><br><span class="line">+ **expires(when)**</span><br><span class="line"></span><br><span class="line">    为元素添加 ```TTL Index```，这个属性是 ```Date``` 独有的。传入的属性可以是秒数，也可是比较友好的字符串形式。</span><br></pre></td></tr></table></figure>
+
+// expire in 24 hours
+new Schema({ createdAt: { type: Date, expires: 60*60*24 }});
+
+// expire in 24 hours
+new Schema({ createdAt: { type: Date, expires: &apos;24h&apos; }});
+
+// expire in 1.5 hours
+new Schema({ createdAt: { type: Date, expires: &apos;1.5h&apos; }});
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">    </span><br><span class="line">+ **max(maximum, [message])**</span><br><span class="line"></span><br><span class="line">    一种特殊的检查器，会检查输入的数字是否比阈值小。会对应错误信息模板中的 ```&#123;MAX&#125;``` 。输入的值必须是 ```Date``` 类型。</span><br><span class="line">    </span><br><span class="line">+ **min(maximum, [message])**    </span><br><span class="line">    </span><br><span class="line">    一种特殊的检查器，会检查输入的数字是否比阈值大。会对应错误信息模板中的 ```&#123;MIN&#125;``` 。输入的值必须是 ```Date``` 类型。</span><br><span class="line">    </span><br><span class="line">### Object</span><br><span class="line"></span><br><span class="line">+ **auto(bool)**</span><br><span class="line"></span><br><span class="line">    如果打开会自动添加 ```ObjectId``` 到元素的值中。 </span><br><span class="line">    </span><br><span class="line">## Custom</span><br><span class="line">在 ```Mongoose 4.4.0``` 中，支持了自定义 ```Schema Type``` 的功能，新建的 ```Schema Type``` 需要继承自 ```mongoose.SchemaType``` ，与 ```mongoose.SchemaTypes``` 的原型链保持一致，并且需要实现 ```cast()``` 方法。</span><br></pre></td></tr></table></figure></code></pre><p>function Int8(key, options) {<br> mongoose.SchemaType.call(this, key, options, ‘Int8’);<br>}<br>Int8.prototype = Object.create(mongoose.SchemaType.prototype);</p>
+<p>// <code>cast()</code> takes a parameter that can be anything. You need to<br>// validate the provided <code>val</code> and throw a <code>CastError</code> if you<br>// can’t convert it.<br>Int8.prototype.cast = function(val) {<br> var _val = Number(val);<br> if (isNaN(_val)) {<br>   throw new Error(‘Int8: ‘ + val + ‘ is not a number’);<br> }<br> _val = Math.round(_val);<br> if (_val &lt; -0x80 || _val &gt; 0x7F) {<br>   throw new Error(‘Int8: ‘ + val +<br>     ‘ is outside of the range of valid 8-bit ints’);<br> }<br> return _val;<br>};</p>
+<p>// Don’t forget to add <code>Int8</code> to the type registry<br>mongoose.Schema.Types.Int8 = Int8;</p>
+<p>var testSchema = new Schema({ test: Int8 });<br>var Test = mongoose.model(‘Test’, testSchema);</p>
+<p>var t = new Test();<br>t.test = ‘abc’;<br>assert.ok(t.validateSync());<br>assert.equal(t.validateSync().errors[‘test’].name, ‘CastError’);<br>assert.equal(t.validateSync().errors[‘test’].message,<br> ‘Cast to Int8 failed for value “abc” at path “test”‘);<br>assert.equal(t.validateSync().errors[‘test’].reason.message,<br> ‘Int8: abc is not a number’);</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">## Creating from ES6 Classes Using</span><br><span class="line">```Mongoose``` 同样支持了 ```ES6``` 的 ```Class``` 特性，可以使用 ```Class``` 新建类之后使用 ```loadClass()``` 导入， </span><br><span class="line"></span><br><span class="line">+ ```getter/setter``` 函数对应 ```get/set</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>类方法对应 <figure class="highlight plain"><figcaption><span>的方法</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">+ 静态方法对应 ```Model``` 静态方法。</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>const schema = new Schema({ firstName: String, lastName: String });</p>
+<p>class PersonClass {<br> // <code>fullName</code> becomes a virtual<br> get fullName() {<br>   return <code>${this.firstName} ${this.lastName}</code>;<br> }</p>
+<p> set fullName(v) {<br>   const firstSpace = v.indexOf(‘ ‘);<br>   this.firstName = v.split(‘ ‘)[0];<br>   this.lastName = firstSpace === -1 ? ‘’ : v.substr(firstSpace + 1);<br> }</p>
+<p> // <code>getFullName()</code> becomes a document method<br> getFullName() {<br>   return <code>${this.firstName} ${this.lastName}</code>;<br> }</p>
+<p> // <code>findByFullName()</code> becomes a static<br> static findByFullName(name) {<br>   const firstSpace = name.indexOf(‘ ‘);<br>   const firstName = name.split(‘ ‘)[0];<br>   const lastName = firstSpace === -1 ? ‘’ : name.substr(firstSpace + 1);<br>   return this.findOne({ firstName, lastName });<br> }<br>}</p>
+<p>schema.loadClass(PersonClass);<br>var Person = db.model(‘Person’, schema);</p>
+<p>Person.create({ firstName: ‘Jon’, lastName: ‘Snow’ }).<br> then(doc =&gt; {<br>   assert.equal(doc.fullName, ‘Jon Snow’);<br>   doc.fullName = ‘Jon Stark’;<br>   assert.equal(doc.firstName, ‘Jon’);<br>   assert.equal(doc.lastName, ‘Stark’);<br>   return Person.findByFullName(‘Jon Snow’);<br> }).<br> then(doc =&gt; {<br>   assert.equal(doc.fullName, ‘Jon Snow’);<br> });<br>``` </p>
+
+	
+	</div>
+  <a type="button" href="/2017/08/16/a7/#more" class="btn btn-default more">Read More</a>
+</div>
+
+		
+
+		</div>
+
+		<!-- pagination -->
+		<div>
+  		<center>
+		<div class="pagination">
+
+   
+    
+     <a href="/" type="button" class="btn btn-default"><i class="fa fa-arrow-circle-o-left"></i> Prev</a>
+      
+
+        <a href="/" type="button" class="btn btn-default"><i class="fa fa-home"></i>Home</a>
+ 
+          <a type="button" class="btn btn-default disabled">Next<i class="fa fa-arrow-circle-o-right"></i></a>
+        
+
+  
+</div>
+
+  		</center>
+		</div>
+
+		
+		
+	</div> <!-- col-md-9 -->
+
+	
+		<div class="col-md-3">
+	<div id="sidebar">
+	
+			
+  <div id="site_search">
+   <div class="form-group">
+    <input type="text" id="local-search-input" name="q" results="0" placeholder="Search" class="st-search-input st-default-search-input form-control"/>
+   </div>  
+  <div id="local-search-result"></div>
+  </div>
+
+
+		
+			
+		
+			
+	<div class="widget">
+		<h4>Tag Cloud</h4>
+		<ul class="tag_box inline list-unstyled">		
+		
+			<li><a href="/tags/front-end/">front-end<span>1</span></a></li>
+		
+			<li><a href="/tags/spark/">spark<span>1</span></a></li>
+		
+			<li><a href="/tags/java/">java<span>1</span></a></li>
+		
+			<li><a href="/tags/database/">database<span>2</span></a></li>
+		
+			<li><a href="/tags/redux/">redux<span>1</span></a></li>
+		
+			<li><a href="/tags/elasticsearch/">elasticsearch<span>1</span></a></li>
+		
+			<li><a href="/tags/mongodb/">mongodb<span>2</span></a></li>
+		
+			<li><a href="/tags/hbase/">hbase<span>1</span></a></li>
+		
+			<li><a href="/tags/typescript/">typescript<span>1</span></a></li>
+		
+			<li><a href="/tags/react/">react<span>1</span></a></li>
+		
+			<li><a href="/tags/c/">c++<span>1</span></a></li>
+		
+			<li><a href="/tags/druid/">druid<span>1</span></a></li>
+		
+			<li><a href="/tags/docker/">docker<span>1</span></a></li>
+		
+			<li><a href="/tags/distributed-system/">distributed-system<span>6</span></a></li>
+		
+			<li><a href="/tags/storm/">storm<span>2</span></a></li>
+		
+		 
+		</ul>
+	</div>
+
+
+		
+			
+<div class="widget">
+  <h4>Recent Posts</h4>
+  <ul class="entry list-unstyled">
+    
+      <li>
+        <a href="/2019/10/18/a14/" ><i class="fa fa-file-o"></i>锁</a>
+      </li>
+    
+      <li>
+        <a href="/2019/09/28/a6/" ><i class="fa fa-file-o"></i>Elasticsearch优化思路</a>
+      </li>
+    
+      <li>
+        <a href="/2019/05/11/a5/" ><i class="fa fa-file-o"></i>RATE LIMIT FOR MONGOSPARK W...</a>
+      </li>
+    
+      <li>
+        <a href="/2019/04/06/a13/" ><i class="fa fa-file-o"></i>FROM BIGTABLE TO DRUID</a>
+      </li>
+    
+      <li>
+        <a href="/2019/03/17/a4/" ><i class="fa fa-file-o"></i>STORM中OOM引发的思考</a>
+      </li>
+    
+  </ul>
+</div>
+
+		
+			
+<div class="widget">
+	<h4>Links</h4>
+	<ul class="blogroll list-unstyled">
+	
+		<li><i class="fa fa-github"></i><a href="https://github.com/TalkWIthKeyboard" title="TalkWIthKeyboard's Github repository." target="_blank"]);">TalkWIthKeyboard</a></li>
+	
+	</ul>
+</div>
+
+
+		
+	</div> <!-- sidebar -->
+</div> <!-- col-md-3 -->
+
+	
+	
+</div> <!-- row-fluid -->
+	</div>
+  </div>
+  <div class="container-narrow">
+  <footer> <p>
+  &copy; 2019 TalkWithKeyboard
+  
+      with help from <a href="http://hexo.io/" target="_blank">Hexo</a>,<a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind</a>,<a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a> and <a href="http://getbootstrap.com/" target="_blank">BOOTSTRA.386</a>. 
+     <br> Theme by <a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind.386</a>.    
+</p>
+ </footer>
+</div> <!-- container-narrow -->
+  
+
+
+  
+<a id="gotop" href="#">   
+  <span>⬆︎TOP</span>
+</a>
+
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/search.js"></script> 
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+
+
+   <script type="text/javascript">      
+     var search_path = "search.xml";
+	 if (search_path.length == 0) {
+	 	search_path = "search.xml";
+	 }
+	 var path = "/" + search_path;
+     searchFunc(path, 'local-search-input', 'local-search-result');
+   </script>
+
+</body>
+   </html>

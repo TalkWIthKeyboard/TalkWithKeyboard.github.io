@@ -1,0 +1,288 @@
+<!DOCTYPE HTML>
+<html>
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="utf-8">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="cache-control" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  
+  <title>一次多进程优化实践 | GRYFFONDOR</title>
+  <meta name="author" content="TalkWithKeyboard">
+  
+  <meta name="description" content="我们先从最近手里的一个项目说起，其实这个项目的需求很简单：从多数据源抓取数据，进行数据整合以后分别存入到不同的数据库中。当然不同数据库存储的数据结构是不一样的，但是也只是对数据源 attribute 的重新过滤组合而已。
+当每一份数据的体量以及整个数据的体量变得很大的时候，系统的实时性大大降低（因为">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="一次多进程优化实践">
+  <meta property="og:site_name" content="GRYFFONDOR">
+
+  
+    <meta property="og:image" content>
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="/css/bootstrap.min.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/font-awesome.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/responsive.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/highlight.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/google-fonts.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+
+  <script src="/js/jquery-2.0.3.min.js"></script>
+
+</head>
+</html>
+ <body>  
+  <nav id="main-nav" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+      <button type="button" class="navbar-header navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+	  <a class="navbar-brand" href="/">GRYFFONDOR</a>
+      <div class="collapse navbar-collapse nav-menu">
+		<ul class="nav navbar-nav">
+		  
+		  <li>
+			<a href="/archives" title="All the articles.">
+			  <i class=""></i>Archives
+			</a>
+		  </li>
+		  
+		  <li>
+			<a href="/atom.xml" title="Subscribe me.">
+			  <i class=""></i>RSS
+			</a>
+		  </li>
+		  
+		</ul>
+      </div>
+    </div> <!-- container -->
+</nav>
+<div class="clearfix"></div>
+
+  <div class="container">
+  	<div class="content">
+    	 
+
+
+	
+		<div class="page-header">
+			<h1> 一次多进程优化实践</h1>
+		</div>
+	
+
+
+
+<div class="row post">
+	<!-- cols -->
+	
+	<div id="top_meta"></div>
+	<div class="col-md-9">
+	
+
+	<!-- content -->
+	<div class="mypage">		
+	  		
+
+	  <p>我们先从最近手里的一个项目说起，其实这个项目的需求很简单：<strong>从多数据源抓取数据，进行数据整合以后分别存入到不同的数据库中。当然不同数据库存储的数据结构是不一样的，但是也只是对数据源 attribute 的重新过滤组合而已。</strong></p>
+<p>当每一份数据的体量以及整个数据的体量变得很大的时候，系统的实时性大大降低（因为在数据库的另一端是有客户端等着将数据进行可视化展示的），这个时候我就不得不好好审视一下我的代码结构了。早先在设计的时候，因为没有考虑到数据这么大的体量，并且为了增强日志文件的可读性和一些客观限制，我没有选择大量的异步并发。</p>
+<blockquote>
+<p>为了后面描述比较方便，我先罗列一下这些客观限制： </p>
+</blockquote>
+<blockquote>
+<ul>
+<li><code>Azure Cosmos DB</code> 是对并发数量有限制的，大概在 <code>20次/s</code> 的时候会发出警告。</li>
+<li><code>Azure Cosmos DB</code> 是对 <code>Stored Procedure</code> 的 <code>request body</code> 以及 <code>response body</code> 有限制的。</li>
+<li><code>Node</code> 的异步数量是存在限制的，数据库连接数也是存在限制的。</li>
+</ul>
+</blockquote>
+<h2 id="初步模型"><a href="#初步模型" class="headerlink" title="初步模型"></a>初步模型</h2><p>单进程单线程同步跑任务，这个速度肯定是我们接受不了的。那我们开始优化我们的架构。对于这种多数据源多任务的场景，<strong>生产者消费者</strong> 的行为模式作为基础应该是最合适不过了。这样我们就可以把业务逻辑完全解耦为：</p>
+<ul>
+<li>生产者从数据源抓数据整理为 <strong>数据单元</strong> 放到缓存队列。</li>
+<li>消费者从缓存队列拿出 <strong>数据单元</strong> 进行处理。</li>
+</ul>
+<p>解耦完成后，我们对这两部分一一的审视。这样单一性的任务我们能很好的进行多线程、多进程的处理，这里我选择在生产者的 <strong>单一数据源</strong> ，消费者的 <strong>文件－数据库（一个数据源会产生多个文件，每份文件要存储到多个数据库，这里的意思是一个文件存储到一个数据库）</strong> 粒度上选择多进程处理。</p>
+<ul>
+<li>生产者</li>
+</ul>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> cluster = <span class="built_in">require</span>(<span class="string">'cluster'</span>);</span><br><span class="line"><span class="keyword">const</span> cpuNum = <span class="built_in">require</span>(<span class="string">'os'</span>).cpus().length;</span><br><span class="line"><span class="keyword">const</span> redis = <span class="built_in">require</span>(<span class="string">'redis'</span>);</span><br><span class="line"><span class="keyword">const</span> sourceList = [...];</span><br><span class="line"><span class="keyword">const</span> sourceIndex = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (cluster.isMaster) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; cpuNum; i++) &#123;</span><br><span class="line">        cluster.fork();</span><br><span class="line">    &#125;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (sourceIndex &lt; sourceList.length) &#123;</span><br><span class="line">        <span class="comment">// 选择数据源</span></span><br><span class="line">        <span class="keyword">let</span> source = sourceList[++sourceIndex];</span><br><span class="line">        <span class="comment">// 抓数据并过滤成对象，存入redis</span></span><br><span class="line">        <span class="keyword">let</span> dataObj = catchAndParser(source);</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>消费者</li>
+</ul>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> cluster = <span class="built_in">require</span>(<span class="string">'cluster'</span>);</span><br><span class="line"><span class="keyword">const</span> cpuNum = <span class="built_in">require</span>(<span class="string">'os'</span>).cpus().length;</span><br><span class="line"><span class="keyword">const</span> redis = <span class="built_in">require</span>(<span class="string">'redis'</span>);</span><br><span class="line"><span class="keyword">const</span> worker = <span class="built_in">require</span>(<span class="string">'./worker'</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> workers = &#123;</span><br><span class="line">    mssql: worker.mssql,</span><br><span class="line">    documentdb: worker.documentdb,</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (cluster.isMaster) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; cpuNum; i++) &#123;</span><br><span class="line">        cluster.fork();</span><br><span class="line">    &#125;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// 从redis里取任务</span></span><br><span class="line">    <span class="keyword">let</span> task = getTaskFromRedis();</span><br><span class="line">    <span class="comment">// 进行数据重组以及存储</span></span><br><span class="line">    worker[task.type](task);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这样我们会发现我们起的进程数达到 <code>CUP</code> 的两倍了，其实这边可以自己根据任务是否会吃满 <code>CUP</code> ，会吃多少，并结合进程切换的时间以及内存问题来调整进程数量。到现在我们完成了我们的初步模型，但是有一个很麻烦的问题暴露在了我们面前，我们现在的逻辑没有去维护连接池，也就是说我们会在 <code>Worker</code> 进程中让它自己去进行连接，完成任务再断开连接。这样显然也是我们不希望去看到的。</p>
+<h2 id="连接池"><a href="#连接池" class="headerlink" title="连接池"></a>连接池</h2><p>最初我有两种设想：</p>
+<ul>
+<li>在主进程建立连接池，然后所有 <code>Worker</code> 需要连接的时候就去这个地方取来用。</li>
+<li>在每一个进程当中去维护自己的连接池。</li>
+</ul>
+<p>思来想去，咨询前辈后发现第一种想法有点太傻了。先不说父子进程间监听 <code>socket</code> 的问题，光是子进程对取回来的连接进行复用这一点上也是对性能的浪费。所以当然是每个进程维护自己的连接池比较好，这样不论是多线程还是异步的情况下，都能不让连接成为性能的瓶颈。</p>
+<p>在实现上，我们需要放在全局声明连接池，这样因为子进程是 <code>fork</code> 出去的，也会在自己的进程当中声明连接池。完成了我们每个进程一个连接池的目的。</p>
+<p>参考：<a href="https://stackoverflow.com/questions/24339179/nodejs-cluster-with-mysql-connections" target="_blank" rel="noopener">Nodejs Cluster with MySQL connections</a></p>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> cluster = <span class="built_in">require</span>(<span class="string">'cluster'</span>);</span><br><span class="line"><span class="keyword">var</span> http = <span class="built_in">require</span>(<span class="string">'http'</span>);</span><br><span class="line"><span class="keyword">var</span> numCPUs = <span class="built_in">require</span>(<span class="string">'os'</span>).cpus().length;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> mysql = <span class="built_in">require</span>(<span class="string">'mysql'</span>);</span><br><span class="line"><span class="keyword">var</span> pool  = mysql.createPool(&#123;</span><br><span class="line">   connectionLimit : <span class="number">10</span>,</span><br><span class="line">   host            : <span class="string">'example.org'</span>,</span><br><span class="line">   user            : <span class="string">'bob'</span>,</span><br><span class="line">   password        : <span class="string">'secret'</span></span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (cluster.isMaster) &#123;</span><br><span class="line">    ...</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="数据库层面"><a href="#数据库层面" class="headerlink" title="数据库层面"></a>数据库层面</h2><p>其实我们在数据库层面的操作也比较简单：</p>
+<ul>
+<li>根据某个字段获取数据库里的内容（避免设计子增主键的部分重复存储）</li>
+<li>批量存储</li>
+</ul>
+<h3 id="批量存储"><a href="#批量存储" class="headerlink" title="批量存储"></a>批量存储</h3><p>可以看到性能瓶颈的地方就在第二点，这里不同的数据库就会有不同的支持。对于 <code>Documentdb</code>，可以将批量数据封装成数组全部丢给 <code>Stored procedure</code> ，但其实 <code>Stored procedure</code> 中也是一个一个数据存入数据库中。（这里与数据库是多线程还是单线程有关，后面会去研究一下 <code>Documentdb</code> 的底层再来补坑）。对于前面提到的客观条件1、2，其实是可以把数据包分包再异步，如果并发数量超过限制再使用队列管理异步。<strong>参考：<a href="https://docs.microsoft.com/en-us/azure/cosmos-db/programming" target="_blank" rel="noopener">Azure Cosmos DB server-side programming: Stored procedures</a></strong></p>
+<p>而对于 <code>Sql server</code>，就可以选择用 <code>bulk</code> 还是 <code>insert</code> 的 <code>sql</code> 语句中 <code>OPENROWSET(BULK...)</code> 选项都是可行的，但是从代码组织来看用 <code>bulk</code> 是更好的选择。 <strong>参考：<a href="https://docs.microsoft.com/zh-cn/sql/relational-databases/import-export/import-bulk-data-by-using-bulk-insert-or-openrowset-bulk-sql-server" target="_blank" rel="noopener">使用 BULK INSERT 或 OPENROWSET(BULK…) 导入批量数据</a></strong></p>
+<h3 id="批量查找"><a href="#批量查找" class="headerlink" title="批量查找"></a>批量查找</h3><p>数量较少时，我觉得放在服务器端异步并发比较好。数量比较多时就把任务交给服务器端的 <code>Stored procedure</code> 处理。比较麻烦的是， <code>Sql server</code> 的 <strong>SP</strong> 是不接受数组的，可以通过字符串操作分隔符来模拟数组。<strong>参考：<a href="http://www.cnblogs.com/HeroTan/p/4817288.html" target="_blank" rel="noopener">sql server 模拟数组</a></strong></p>
+<hr>
+<p><strong>2017年9月21日更新</strong></p>
+<blockquote>
+<p>上一次的文章当中有一些地方有错误的地方和一些需要完善的地方，这边进行指出并更新。</p>
+</blockquote>
+<h2 id="错误"><a href="#错误" class="headerlink" title="错误"></a>错误</h2><p>生产者的伪代码中直接使用了数组来分发数据源的方法是完全错误的，其实每个进程都会拷贝一份代码去执行，这种方法需要让每个进程中去共享 <code>sourceIndex</code> 才能够实现。而我们这边的子进程是通过父进程 <code>fork</code> 所得，所以需要在父进程来维护 <code>sourceIndex</code>，分发给子进程。或者也直接使用消息队列来实现这一部分的功能。</p>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> cluster = <span class="built_in">require</span>(<span class="string">'cluster'</span>);</span><br><span class="line"><span class="keyword">const</span> cpuNum = <span class="built_in">require</span>(<span class="string">'os'</span>).cpus().length;</span><br><span class="line"><span class="keyword">const</span> redis = <span class="built_in">require</span>(<span class="string">'redis'</span>);</span><br><span class="line"><span class="keyword">const</span> sourceList = [...];</span><br><span class="line"><span class="keyword">const</span> sourceIndex = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (cluster.isMaster) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; cpuNum; i++) &#123;</span><br><span class="line">        <span class="keyword">let</span> worker = cluster.fork();</span><br><span class="line">        worker.send(sourceList[sourceIndex]);</span><br><span class="line">        sourceindex++;</span><br><span class="line">    &#125;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    process.on(<span class="string">'message'</span>, <span class="function">(<span class="params">source</span>) =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">let</span> dataObj = catchAndParser(source);</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="完善"><a href="#完善" class="headerlink" title="完善"></a>完善</h2><p><code>rsmq</code> 是一个基于 <code>redis</code> 封装好的消息队列的库，使用起来也比较方便。唯一不太好的地方是没有封装 <strong>循环队列</strong> ，这使得场景下处理起来比较麻烦。比如我现在的任务是循环不变的，做完了又重头做。</p>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> cluster = <span class="built_in">require</span>(<span class="string">'cluster'</span>);</span><br><span class="line"><span class="keyword">const</span> cpuNum = <span class="built_in">require</span>(<span class="string">'os'</span>).cpus().length;</span><br><span class="line"><span class="keyword">const</span> rsmq = <span class="built_in">require</span>(<span class="string">'rsmq'</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> worker = <span class="keyword">async</span> (worker, process) =&gt; &#123;</span><br><span class="line">    <span class="comment">// 封装好的promise对象</span></span><br><span class="line">    <span class="keyword">let</span> task = <span class="keyword">await</span> rsmq.receiveMessage(<span class="string">'qName'</span>);</span><br><span class="line">    <span class="keyword">if</span> (!task) &#123;</span><br><span class="line">        worker.send(<span class="string">'finished'</span>);</span><br><span class="line">        process.kill();</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// 执行任务</span></span><br><span class="line">        ...</span><br><span class="line">        process.kill();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (cluster.isMaster) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; cpuNum; i++) &#123;</span><br><span class="line">        cluster.fork();</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    cluster.on(<span class="string">'exit'</span>, <span class="function">(<span class="params">worker, code, signal</span>) =&gt;</span> &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(<span class="string">'Worker '</span> + worker.process.pid + <span class="string">' died with code: '</span> + code + <span class="string">', and signal: '</span> + signal);</span><br><span class="line">        <span class="built_in">console</span>.log(<span class="string">'Starting a new worker'</span>);</span><br><span class="line">        <span class="comment">// 退出后重启进程</span></span><br><span class="line">        cluster.fork();</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    cluster.on(<span class="string">'message'</span>, <span class="function">(<span class="params">msg</span>) =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (msg === <span class="string">'finished'</span>) &#123;</span><br><span class="line">            <span class="comment">// 关闭退出重启cluster.removeAllListener('exit');</span></span><br><span class="line">            <span class="comment">// 重新填充数据源</span></span><br><span class="line">            ...</span><br><span class="line">            <span class="comment">// 重新启动所有进程</span></span><br><span class="line">            <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i &lt; cpuNum; i++) &#123;</span><br><span class="line">                cluster.fork();</span><br><span class="line">            &#125;</span><br><span class="line">            </span><br><span class="line">            cluster.on(<span class="string">'exit'</span>, <span class="function">(<span class="params">worker, code, signal</span>) =&gt;</span> &#123;</span><br><span class="line">                <span class="built_in">console</span>.log(<span class="string">'Worker '</span> + worker.process.pid + <span class="string">' died with code: '</span> + code + <span class="string">', and signal: '</span> + signal);</span><br><span class="line">                <span class="built_in">console</span>.log(<span class="string">'Starting a new worker'</span>);</span><br><span class="line">                <span class="comment">// 退出后重启进程</span></span><br><span class="line">                cluster.fork();</span><br><span class="line">            &#125;);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">    &#125;)</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    worker(cluster.worker, process);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>当然这种实现只是一个思路，而且不是特别好，因为每次做完任务之后都需要重启一个 <code>worker</code> 进程，可以长期保持几个固定的进程，主进程通过通信来分发任务。不用浪费资源去重启进程。</strong></p>
+<h2 id="补充"><a href="#补充" class="headerlink" title="补充"></a>补充</h2><ul>
+<li>在一个场景下，我希望使用前台的开关来控制我后台的进程。这种时候因为 <code>fork</code> 进程的句柄在打开开关的那个进程中，我无法在后面关闭的进程当中获取。所以其实可以在启动进程的时候，将进程号发送到消息队列中，关闭时进行关闭。（我这里描述的场景是一个开关同时控制多个任务，如果一个开关控制一个还是直接以任务名做 <code>key</code>， 进程号作为 <code>value</code> 存入 <code>redis</code> 中比较好）</li>
+<li>通过 <code>fork</code> 出来的子进程，<code>stdin</code>, <code>stdout</code>, <code>stderr</code> 三个流都会复制父进程，如果需要重定向，需要在 <code>fork</code> 时进行配置。</li>
+</ul>
+<figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> cp = <span class="built_in">require</span>(<span class="string">'child_process'</span>);</span><br><span class="line"><span class="keyword">const</span> fs = <span class="built_in">require</span>(<span class="string">'fs'</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> main = <span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">let</span> worker = cp.fork(<span class="string">'./test.js'</span>, &#123; silent: <span class="literal">true</span> &#125;);</span><br><span class="line">  <span class="keyword">let</span> fileStream = fs.createWriteStream(<span class="string">'./output'</span>);</span><br><span class="line"></span><br><span class="line">  worker.stdout.pipe(fileStream);</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">main();</span><br></pre></td></tr></table></figure>	  
+	</div>
+
+	<div>
+  	<center>
+	<div class="pagination">
+
+    
+    
+    <a href="/2017/10/24/a12/" type="button" class="btn btn-default"><i
+                class="fa fa-arrow-circle-o-left"></i> Prev</a>
+    
+
+    <a href="/" type="button" class="btn btn-default"><i class="fa fa-home"></i>Home</a>
+    
+    <a href="/2017/08/16/a7/" type="button" class="btn btn-default ">Next<i
+                class="fa fa-arrow-circle-o-right"></i></a>
+    
+
+    
+</div>
+
+    </center>
+	</div>
+	
+	<!-- comment -->
+	
+<section id="comment">
+    <h2 class="title">Comments</h2>
+
+    
+</section>
+
+
+	</div> <!-- col-md-9/col-md-12 -->
+		
+	
+	<div id="side_meta">
+		<div class="col-md-3" id="post_meta"> 
+
+	<!-- date -->
+	
+	<div class="meta-widget">
+	<i class="fa fa-clock-o"></i>
+	2017-09-14 
+	</div>
+	
+
+	<!-- categories -->
+    
+
+	<!-- tags -->
+	
+	<div class="meta-widget">
+	<a data-toggle="collapse" data-target="#tags"><i class="fa fa-tags"></i></a>		  
+    <ul id="tags" class="tag_box list-unstyled collapse in">	  
+	    
+  <li><a href="/tags/distributed-system/">distributed-system<span>6</span></a></li>
+    </ul>
+	</div>
+		
+
+	<!-- toc -->
+	<div class="meta-widget">
+	
+	   <a data-toggle="collapse" data-target="#toc"><i class="fa fa-bars"></i></a>
+	   <div id="toc" class="toc collapse in">
+		   <span class="toc-title">Contents</span>
+			<ol class="toc-article"><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#初步模型"><span class="toc-article-text">初步模型</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#连接池"><span class="toc-article-text">连接池</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#数据库层面"><span class="toc-article-text">数据库层面</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#批量存储"><span class="toc-article-text">批量存储</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#批量查找"><span class="toc-article-text">批量查找</span></a></li></ol></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#错误"><span class="toc-article-text">错误</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#完善"><span class="toc-article-text">完善</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#补充"><span class="toc-article-text">补充</span></a></li></ol>
+		</div>
+	
+	</div>
+	
+    <hr>
+	
+</div><!-- col-md-3 -->
+
+	</div>
+		
+
+</div><!-- row -->
+
+
+
+	</div>
+  </div>
+  <div class="container-narrow">
+  <footer> <p>
+  &copy; 2019 TalkWithKeyboard
+  
+      with help from <a href="http://hexo.io/" target="_blank">Hexo</a>,<a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind</a>,<a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a> and <a href="http://getbootstrap.com/" target="_blank">BOOTSTRA.386</a>. 
+     <br> Theme by <a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind.386</a>.    
+</p>
+ </footer>
+</div> <!-- container-narrow -->
+  
+
+
+  
+<a id="gotop" href="#">   
+  <span>⬆︎TOP</span>
+</a>
+
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/search.js"></script> 
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+
+
+   <script type="text/javascript">      
+     var search_path = "search.xml";
+	 if (search_path.length == 0) {
+	 	search_path = "search.xml";
+	 }
+	 var path = "/" + search_path;
+     searchFunc(path, 'local-search-input', 'local-search-result');
+   </script>
+
+</body>
+   </html>

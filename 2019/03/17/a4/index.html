@@ -1,0 +1,281 @@
+<!DOCTYPE HTML>
+<html>
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="utf-8">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="cache-control" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  
+  <title>STORM中OOM引发的思考 | GRYFFONDOR</title>
+  <meta name="author" content="TalkWithKeyboard">
+  
+  <meta name="description" content="描述最近一次在实现需求的时候发现 Storm 中的一个 Bolt 出现了 OOM 导致的长时间 GC 问题。最后虽然通过 review 新更新的代码找到了问题，但是深究其中还是有一些别的收获，所以在这里进行记录。
+在 review 新更新的代码之后发现，我将 JedisPool 的实例化写到了 ex">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="STORM中OOM引发的思考">
+  <meta property="og:site_name" content="GRYFFONDOR">
+
+  
+    <meta property="og:image" content>
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="/css/bootstrap.min.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/font-awesome.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/responsive.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/highlight.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/google-fonts.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+
+  <script src="/js/jquery-2.0.3.min.js"></script>
+
+</head>
+</html>
+ <body>  
+  <nav id="main-nav" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+      <button type="button" class="navbar-header navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+	  <a class="navbar-brand" href="/">GRYFFONDOR</a>
+      <div class="collapse navbar-collapse nav-menu">
+		<ul class="nav navbar-nav">
+		  
+		  <li>
+			<a href="/archives" title="All the articles.">
+			  <i class=""></i>Archives
+			</a>
+		  </li>
+		  
+		  <li>
+			<a href="/atom.xml" title="Subscribe me.">
+			  <i class=""></i>RSS
+			</a>
+		  </li>
+		  
+		</ul>
+      </div>
+    </div> <!-- container -->
+</nav>
+<div class="clearfix"></div>
+
+  <div class="container">
+  	<div class="content">
+    	 
+
+
+	
+		<div class="page-header">
+			<h1> STORM中OOM引发的思考</h1>
+		</div>
+	
+
+
+
+<div class="row post">
+	<!-- cols -->
+	
+	<div id="top_meta"></div>
+	<div class="col-md-9">
+	
+
+	<!-- content -->
+	<div class="mypage">		
+	  		
+
+	  <h2 id="描述"><a href="#描述" class="headerlink" title="描述"></a>描述</h2><p>最近一次在实现需求的时候发现 Storm 中的一个 Bolt 出现了 OOM 导致的长时间 GC 问题。最后虽然通过 review 新更新的代码找到了问题，但是深究其中还是有一些别的收获，所以在这里进行记录。</p>
+<p>在 review 新更新的代码之后发现，我将 <code>JedisPool</code> 的实例化写到了 <code>execute</code> 中而不是 <code>prepare</code> 中，所以 Storm 每次执行 <code>execute</code> 的时候都会重新实例化 <code>JedisPool</code> 并且也没有显式的进行 <code>close</code>。</p>
+<p>虽然这个问题只是因为疏忽导致的，但是也让我对两个大问题进行了思考。一个是对于 Storm 中资源冲突的问题应该如何去发现、定位、处理，第二个是 Storm 中 Component 的生命周期。下面会讨论这两个问题。</p>
+<h2 id="Storm中的资源冲突"><a href="#Storm中的资源冲突" class="headerlink" title="Storm中的资源冲突"></a>Storm中的资源冲突</h2><p><img src="/images/a4-1.png" alt="a4-1"></p>
+<p>要解决 Storm 中的资源冲突，那么需要先了解 Storm 中的资源分配。一个集群由一个 nimbus 节点和多个工作节点组成，每个工作节点由一个 <code>Supervisor</code> 管理着多个 <code>Worker process</code>，每个 <code>Worker process</code> 对应着一个 <code>JVM</code>，在其中有多个 <code>Executor thread</code>。每个 <code>Executor thread</code> 中可能存在多个 <code>Task</code>。而 <code>Task</code> 则是一个 bolt 或者 spout 的实例。</p>
+<p>在此基础上，可以把资源竞争从所属结构从小到大划分为：</p>
+<ul>
+<li><code>Worker process</code> 中的内存冲突</li>
+<li><code>Worker process</code> 的冲突</li>
+<li>工作节点上的内存冲突</li>
+<li>工作节点上的 CPU 冲突</li>
+<li>工作节点上的网络 I/O 冲突</li>
+<li>工作节点上的磁盘 I/O 冲突</li>
+</ul>
+<h3 id="Worker-process-中的内存冲突"><a href="#Worker-process-中的内存冲突" class="headerlink" title="Worker process 中的内存冲突"></a>Worker process 中的内存冲突</h3><p>首先这类冲突实际上是 JVM 中的内存占用过多，表现为 <code>out-of-memory</code> 或者进入长时间的垃圾回收，并且这类冲突会在 UI 上暴露出来。而解决办法无非是：</p>
+<ul>
+<li>减少一个 <code>Worker process</code> 中的 <code>Executor thread</code> 个数<ul>
+<li>保证 <code>Executor thread</code> 数量不变的情况下加大 <code>Worker process</code> 数量</li>
+<li>保证 <code>Worker process</code> 数量不变的情况下减少 <code>Executor thread</code> 数量</li>
+</ul>
+</li>
+<li>提高给 JVM 分配的内存：在 <code>storm.yaml</code> 中 <code>worker.childopts</code> 属性是 JVM 相关的参数，可以通过设定 <code>-Xms</code> 和 <code>-Xmx</code> 来进行修改。</li>
+</ul>
+<p>而观察任务的 GC 日志是最直接也是最长用到来解决问题的途径，在 <code>storm.yaml</code> 的 <code>worker.childopts</code> 中可以对 JVM 的 GC 日志进行配置。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">worker.childopts: &quot;&quot;-XX +PrintGCTimeStamps  </span><br><span class="line">-XX: +PrintGCDetails</span><br><span class="line">-Xloggc: /opt/storm/worker-%ID%-jvm-gc.log</span><br><span class="line">-XX: +UseGCLogFileRotation</span><br><span class="line">-XX: NumberOfGCLogFiles=5</span><br><span class="line">-XX: GCLogFileSize=1M</span><br><span class="line">-XX: +PrintGCDateStamps</span><br><span class="line">-XX: +PrintGCApplicationStoppedTime</span><br><span class="line">-XX: +PrintGCApplicationConsurrentTime&quot;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>-XX +PrintGCTimeStamps</code>: 打印垃圾回收的时间戳</li>
+<li><code>-XX: +PrintGCDetails</code>: 打印额外的 GC 细节</li>
+<li><code>-Xloggc: /opt/storm/worker-%ID%-jvm-gc.log</code>: 为每个工作进程分别创建日志文件</li>
+<li><code>-XX: +UseGCLogFileRotation</code>: 对 GC 日志文件使用日志转储</li>
+<li><code>-XX: NumberOfGCLogFiles=5</code>: 设置日志的分割个数</li>
+<li><code>-XX: GCLogFileSize=1M</code>: 设置日志的分割大小</li>
+<li><code>-XX: +PrintGCDateStamps</code>: 打印垃圾回收的日期和时间信息</li>
+<li><code>-XX: +PrintGCApplicationStoppedTime</code>: 打印应用程序停止时 GC 启动时间（时间在安全点内）</li>
+<li><code>-XX: +PrintGCApplicationConsurrentTime</code>: 打印 GC 执行期间程序启动的时间（时间不在安全点内）</li>
+</ul>
+<h3 id="Worker-process-的冲突"><a href="#Worker-process-的冲突" class="headerlink" title="Worker process 的冲突"></a>Worker process 的冲突</h3><p>这是由于需要的 Worker process 数量超过了集群中的数量，可以通过扩展集群，或者增加每个工作节点的 Worker process 数量来解决。也可以对减少集群里一些任务的 Worker process 占用来解决。</p>
+<p>在 <code>storm.yaml</code> 的 <code>supervisor.slots.ports</code> 配置项可以配置一个工作节点的 Worker process 数量，每一个端口对应一个进程。添加添加、删除端口就能进行控制。</p>
+<h3 id="工作节点上的内存冲突"><a href="#工作节点上的内存冲突" class="headerlink" title="工作节点上的内存冲突"></a>工作节点上的内存冲突</h3><p>因为工作节点的内存需要支撑 <code>Supervisor process</code>， 操作系统，多个 <code>Worker process</code> 和其他的一些进程。如果工作节点在内存上发生了使用冲突，工作节点将开启进程间的内存调度（swapping），会造成有较高的延时发生。可以通过 <code>sar</code> 命令来进行监控：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> sar -S 1 3</span><br><span class="line">``` </span><br><span class="line"></span><br><span class="line">表示每隔1秒输出3条内存的活动信息，主要需要关注 `kbswpused` 和 `%swpused` 数据。`kbswpused` 是使用中的交换空间内存(KB) ，`%swpused` 是使用中的交换空间内存百分比。如果这两个值大于0则说明系统中存在内存交换。</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span>## 工作节点上的 CPU 冲突</span><br><span class="line">和上一个情况类似，也是因为对 CPU 的使用超过了节点所能提供的而造成的。也可以使用 `sar` 命令来进行监控：</span><br><span class="line"></span><br><span class="line">```shell</span><br><span class="line"><span class="meta">$</span> sar -u 1 3</span><br></pre></td></tr></table></figure>
+
+<p>主要需要关注 <code>%idle</code>，即在系统没有任何磁盘 I/O 请求空闲CPU时间百分比，如果值偏低。再到 <code>%user</code>，<code>%nice</code>， <code>%system</code> 中去找事应用层面上的问题还是系统层面的问题。</p>
+<h3 id="工作节点上的-I-O-冲突"><a href="#工作节点上的-I-O-冲突" class="headerlink" title="工作节点上的 I/O 冲突"></a>工作节点上的 I/O 冲突</h3><p>同样可以使用 <code>sar</code> 命令来进行监控：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> sar -u 1 3</span><br></pre></td></tr></table></figure>
+
+<p>只是现在需要关注的值是 <code>%iowait</code>，CPU 时间空闲的百分比，在此期间系统将执行 I/O 请求。如果这个值约为 10.00，那么大概率出现因 I/O 冲突导致的性能问题，如果大于 25.00，一定面临比较严重的 I/O 冲突。</p>
+<p>然后要做的就是定位问题是在网络 I/O 还是磁盘 I/O，可以先通过下面的方法检查网络 I/O。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">// 获取进程id</span><br><span class="line"><span class="meta">$</span> ps aux | grep MY_TOPOLOGY_NAME</span><br><span class="line">stormuser 12345 .....</span><br><span class="line"></span><br><span class="line">// 获取端口</span><br><span class="line"><span class="meta">$</span> netstat -antup | grep "12345/"</span><br><span class="line">tcp6       0      0 xx.xx.xx.xx: 12345        xx.xx.xx.xx:42474       ESTABLISHED 4576/java</span><br><span class="line"></span><br><span class="line">// 查看限制</span><br><span class="line"><span class="meta">$</span> cat /proc/12345/limits</span><br><span class="line"></span><br><span class="line">// 查看该端口的稳定的连接tcp连接</span><br><span class="line"><span class="meta">$</span> netstat -na | grep "tcp6" | grep "4576" | grep "ESTABLISHED" | wc -l</span><br></pre></td></tr></table></figure>
+
+<p>检查 <code>Max open files</code> 一行， soft limit 和 hard limit 的值，如果已经到达设置的极限值，那么就会发生网络 I/O 冲突。然后可以使用 iotop 来观察是否发生了磁盘 I/O。</p>
+<p>主要观察 USER 为 storm 的进程， <code>DISK READ</code> ，<code>DISK WRITE</code>，<code>IO&gt;</code> 即每秒该进程读取的字节数，每秒该进程写入的字节数，每秒 I/O 调用百分比。如果其中一个值较高就说明相关的任务出现了磁盘 I/O 冲突。</p>
+<p><strong>该章节主要参考《Storm应用实践》</strong></p>
+<h2 id="Component-生命周期"><a href="#Component-生命周期" class="headerlink" title="Component 生命周期"></a>Component 生命周期</h2><p>这里可以先参考一下 Nathan on 自己的回答： <a href="https://groups.google.com/forum/#!msg/storm-user/com4JfU9aJ4/zImseAoiH2IJ" target="_blank" rel="noopener">The lifecycle of a bolt or spout</a></p>
+<p>可以看到 <code>prepare</code> 仅仅只会被 worker 在开始的时候执行一次，但是 <code>execute</code> 会在每次有 tuple 进入的时候都被调用。也就是说如果我有一个 Bolt 定义了3个 worker，每个 worker 都有3个 executer。那么总共是有9个 task，也就是说 <code>prepare</code> 会被调用9次，而 <code>execute</code> 就会被无限调用。</p>
+<p>所以我们一些连接和静态变量的初始化工作放到 <code>prepare</code> 中去完成会更加的实惠。但是由于每个 worker 对应一个单独的 JVM 进程，一个 JVM 进程中会有多个 executor 线程，所以就会有多个 task 同时执行 <code>prepare</code> 的操作。<br>那么一些连接的创建是需要线程安全的环境，线程安全的单例写法这里不赘述。</p>
+	  
+	</div>
+
+	<div>
+  	<center>
+	<div class="pagination">
+
+    
+    
+    <a href="/2019/04/06/a13/" type="button" class="btn btn-default"><i
+                class="fa fa-arrow-circle-o-left"></i> Prev</a>
+    
+
+    <a href="/" type="button" class="btn btn-default"><i class="fa fa-home"></i>Home</a>
+    
+    <a href="/2018/11/16/a3/" type="button" class="btn btn-default ">Next<i
+                class="fa fa-arrow-circle-o-right"></i></a>
+    
+
+    
+</div>
+
+    </center>
+	</div>
+	
+	<!-- comment -->
+	
+<section id="comment">
+    <h2 class="title">Comments</h2>
+
+    
+</section>
+
+
+	</div> <!-- col-md-9/col-md-12 -->
+		
+	
+	<div id="side_meta">
+		<div class="col-md-3" id="post_meta"> 
+
+	<!-- date -->
+	
+	<div class="meta-widget">
+	<i class="fa fa-clock-o"></i>
+	2019-03-17 
+	</div>
+	
+
+	<!-- categories -->
+    
+
+	<!-- tags -->
+	
+	<div class="meta-widget">
+	<a data-toggle="collapse" data-target="#tags"><i class="fa fa-tags"></i></a>		  
+    <ul id="tags" class="tag_box list-unstyled collapse in">	  
+	    
+  <li><a href="/tags/distributed-system/">distributed-system<span>6</span></a></li> <li><a href="/tags/storm/">storm<span>2</span></a></li>
+    </ul>
+	</div>
+		
+
+	<!-- toc -->
+	<div class="meta-widget">
+	
+	   <a data-toggle="collapse" data-target="#toc"><i class="fa fa-bars"></i></a>
+	   <div id="toc" class="toc collapse in">
+		   <span class="toc-title">Contents</span>
+			<ol class="toc-article"><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#描述"><span class="toc-article-text">描述</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#Storm中的资源冲突"><span class="toc-article-text">Storm中的资源冲突</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Worker-process-中的内存冲突"><span class="toc-article-text">Worker process 中的内存冲突</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Worker-process-的冲突"><span class="toc-article-text">Worker process 的冲突</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#工作节点上的内存冲突"><span class="toc-article-text">工作节点上的内存冲突</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#工作节点上的-I-O-冲突"><span class="toc-article-text">工作节点上的 I/O 冲突</span></a></li></ol></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#Component-生命周期"><span class="toc-article-text">Component 生命周期</span></a></li></ol>
+		</div>
+	
+	</div>
+	
+    <hr>
+	
+</div><!-- col-md-3 -->
+
+	</div>
+		
+
+</div><!-- row -->
+
+
+
+	</div>
+  </div>
+  <div class="container-narrow">
+  <footer> <p>
+  &copy; 2019 TalkWithKeyboard
+  
+      with help from <a href="http://hexo.io/" target="_blank">Hexo</a>,<a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind</a>,<a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a> and <a href="http://getbootstrap.com/" target="_blank">BOOTSTRA.386</a>. 
+     <br> Theme by <a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind.386</a>.    
+</p>
+ </footer>
+</div> <!-- container-narrow -->
+  
+
+
+  
+<a id="gotop" href="#">   
+  <span>⬆︎TOP</span>
+</a>
+
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/search.js"></script> 
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+
+
+   <script type="text/javascript">      
+     var search_path = "search.xml";
+	 if (search_path.length == 0) {
+	 	search_path = "search.xml";
+	 }
+	 var path = "/" + search_path;
+     searchFunc(path, 'local-search-input', 'local-search-result');
+   </script>
+
+</body>
+   </html>

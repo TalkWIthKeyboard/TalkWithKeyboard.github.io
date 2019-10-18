@@ -1,0 +1,341 @@
+<!DOCTYPE HTML>
+<html>
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="utf-8">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="cache-control" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  
+  <title>Mongoose Schema | GRYFFONDOR</title>
+  <meta name="author" content="TalkWithKeyboard">
+  
+  <meta name="description" content="Schema Type
+String
+Number
+Date
+Buffer
+Boolean
+Mixed
+Decimal Type (在3.4中新增，最多支持34位小数，并且存储的是实际值而不是浮点数)
+Object
+Objectid
+Array
+
+Usage notesDate内建的 ```Date">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="Mongoose Schema">
+  <meta property="og:site_name" content="GRYFFONDOR">
+
+  
+    <meta property="og:image" content>
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="/css/bootstrap.min.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/font-awesome.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/responsive.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/highlight.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/google-fonts.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+
+  <script src="/js/jquery-2.0.3.min.js"></script>
+
+</head>
+</html>
+ <body>  
+  <nav id="main-nav" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+      <button type="button" class="navbar-header navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+	  <a class="navbar-brand" href="/">GRYFFONDOR</a>
+      <div class="collapse navbar-collapse nav-menu">
+		<ul class="nav navbar-nav">
+		  
+		  <li>
+			<a href="/archives" title="All the articles.">
+			  <i class=""></i>Archives
+			</a>
+		  </li>
+		  
+		  <li>
+			<a href="/atom.xml" title="Subscribe me.">
+			  <i class=""></i>RSS
+			</a>
+		  </li>
+		  
+		</ul>
+      </div>
+    </div> <!-- container -->
+</nav>
+<div class="clearfix"></div>
+
+  <div class="container">
+  	<div class="content">
+    	 
+
+
+	
+		<div class="page-header">
+			<h1> Mongoose Schema</h1>
+		</div>
+	
+
+
+
+<div class="row post">
+	<!-- cols -->
+	
+	<div id="top_meta"></div>
+	<div class="col-md-9">
+	
+
+	<!-- content -->
+	<div class="mypage">		
+	  		
+
+	  <h2 id="Schema-Type"><a href="#Schema-Type" class="headerlink" title="Schema Type"></a>Schema Type</h2><ul>
+<li>String</li>
+<li>Number</li>
+<li>Date</li>
+<li>Buffer</li>
+<li>Boolean</li>
+<li>Mixed</li>
+<li>Decimal Type <strong>(在3.4中新增，最多支持34位小数，并且存储的是实际值而不是浮点数)</strong></li>
+<li>Object</li>
+<li>Objectid</li>
+<li>Array</li>
+</ul>
+<h2 id="Usage-notes"><a href="#Usage-notes" class="headerlink" title="Usage notes"></a>Usage notes</h2><h3 id="Date"><a href="#Date" class="headerlink" title="Date"></a>Date</h3><figure class="highlight plain"><figcaption><span>内建的 ```Date``` 方法没有被纳入 ```Mongoose``` 。所以如果使用像 ```setMonth``` 这样的方法是不会执行的，如果一定要使用需要通过 ```markModified``` 方法告诉 ```Mongoose``` 。</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>var Assignment = mongoose.model(‘Assignment’, { dueDate: Date });<br>Assignment.findOne(function (err, doc) {<br>  doc.dueDate.setMonth(3);<br>  doc.save(callback); // THIS DOES NOT SAVE YOUR CHANGE</p>
+<p>  doc.markModified(‘dueDate’);<br>  doc.save(callback); // works<br>})</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">### Mixed</span><br><span class="line">当改变了 Mixed 元素的结构类型时，需要通过 ```markModified``` 函数告诉 ```Mongoose``` 后才会自动生效。</span><br></pre></td></tr></table></figure>
+
+<p>person.anything = { x: [3, 4, { y: “changed” }] };<br>person.markModified(‘anything’);<br>person.save(); // anything will now get saved</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">### ObjectId</span><br><span class="line">声明时需要使用 ```Schema.Types.ObjectId```。</span><br><span class="line"></span><br><span class="line">### Arrays</span><br><span class="line">当将元素声明为 ```Array``` 以后，默认值会是空数组 ```[]```，如果想修复这个问题，需要添加 ```default``` 属性。被声明为 ```Array``` 的元素如果被指定为 ```required``` ，那么至少需要一个元素在其中。</span><br><span class="line"></span><br><span class="line">## Schema Type handle definition</span><br><span class="line">在 ```Schmea``` 中对于每一个元素都有一些定义好的属性供开发者使用。可以直接定义也可以通过 ```path``` 定义。</span><br></pre></td></tr></table></figure>
+
+<p>// directly<br>var schema = new Schema({<br>  test: {<br>    type: String,<br>    lowercase: true<br>  }<br>});</p>
+<p>// use path<br>var schema2 = new Schema({test: String});</p>
+<p>schema2.path(test).lowercase(true);</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">### Common</span><br><span class="line">+ **default(val)** </span><br><span class="line"></span><br><span class="line">    这个属性就是为元素添加默认值，只要在修改之前都会是这个值。</span><br><span class="line">    对于文档里提到的对于 ```mixed``` 属性，如果不设置特殊的函数返回默认值，那么多个实例会指向第一个实例。但是我在 ```4.11.7``` 版本测试，这个问题已经得到修复。</span><br><span class="line">    </span><br><span class="line">+ **validate(obj, [errorMsg], [type])** </span><br><span class="line">    </span><br><span class="line">    为元素添加检验器，来检验输入的值是否符合要求。第一个参数是检验器，支持 ```RegExp```, ```Function```, ```Object```。正则表达式可以进行最简单的字面检验，函数可以进行较为复杂的逻辑检验，对象可以支持多个检验器的组合，并且可以携带错误信息。</span><br></pre></td></tr></table></figure>
+
+<pre><code>var many = [
+    { validator: validator, msg: &apos;uh oh&apos; }
+  , { validator: anotherValidator, msg: &apos;failed&apos; }
+]
+new Schema({ name: { type: String, validate: many }});
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">更加细节的是，错误信息可以自定义，当然如果没有自定义，内部为准备了一些错误信息模板。自定义错误信息中可以使用模板来获得一些内部属性。</span><br><span class="line"></span><br><span class="line">+ **&#123;PATH&#125; :** 非法的 document path</span><br><span class="line">+ **&#123;VALUE&#125; :** 非法的值</span><br><span class="line">+ **&#123;TYPE&#125; :** 检验器的类型，比如 ```Regexp```, ```min```, ```user defined</span><br></pre></td></tr></table></figure>
+
++ **{MIN} :** 检验器设定的最大值
++ **{Max} :** 检验器设定的最小值
+
+同时也提供了异步检验器，可以通过设置 <figure class="highlight plain"><figcaption><span>属性来告诉 ```Mongoose``` 这是一个异步检验器。在回调中需要返回 ```true``` 或者 ```false``` 来告诉检验器是否成功。**（利用这个属性可以方便的写一个如果不存在则存入数据库的逻辑。）** 这个方法会在 ```save``` 动作之前执行，如果需要的话也可以自己进行[调用](http://mongoosejs.com/docs/api.html#document_Document-validate)，```document.validate(function(err)&#123;&#125;)```。 如果在 ```save``` 之前检验器失败，但是没有错误处理的话，异常会被先抛到 ```Model``` 再到 ```db connection``` ，可以通过监听 ```error``` 捕获。    </span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">+ **get(fn)** </span><br><span class="line"></span><br><span class="line">    为元素添加返回转换器，可以对元素的内容进行转换以后再返回。转换函数中可以接受两个值，第一个是需要过滤的参数，第二个是这个元素对应的 ```SchemaType```，可以使用```SchemaType``` 来定制一些功能。官方文档中举了一个日期处理和信用卡卡号隐藏中间几位数字的例子，还是蛮实用的。</span><br></pre></td></tr></table></figure></code></pre><p>   function inspector (val, schematype) {<br>      if (schematype.options.required) {<br>        return schematype.path + ‘ is required’;<br>      } else {<br>        return schematype.path + ‘ is not’;<br>      }<br>    }</p>
+<pre><code>var VirusSchema = new Schema({
+  name: { type: String, required: true, get: inspector },
+  taxonomy: { type: String, get: inspector }
+})
+
+var Virus = db.model(&apos;Virus&apos;, VirusSchema);
+
+Virus.findById(id, function (err, virus) {
+  console.log(virus.name);     // name is required
+  console.log(virus.taxonomy); // taxonomy is not
+})
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">+ **set(fn)**</span><br><span class="line"></span><br><span class="line">     为元素添加保存转换器，先将元素转换成相应格式以后再存入数据库。同样定义 ```get``` 方法， ```set``` 方法的转换函数也支持两个参数，第一个是需要过滤的参数，第二个是这个元素对应的 ```SchemaType```，可以使用```SchemaType``` 来定制一些功能。</span><br><span class="line">    </span><br><span class="line">+ **select(bool)**   </span><br><span class="line">     </span><br><span class="line">     用来决定该元素是否要包含在搜索结果当中，但是这个属性会被 ```query``` 级别的声明覆盖。</span><br></pre></td></tr></table></figure>
+
+T = db.model(&apos;T&apos;, new Schema({ x: { type: String, select: true }}));
+T.find(..); // field x will always be selected ..
+// .. unless overridden;
+T.find().select(&apos;-x&apos;).exec(callback);
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">     </span><br><span class="line">+ **index(options)**</span><br><span class="line">    </span><br><span class="line">    来定义是否为该元素添加索引，支持 ```Object```, ```Boolean```, ```String```， ```Object``` 用来定义复合索引。**（先留flag，后面会来填MongoDB index的相关问题）**</span><br><span class="line">    </span><br><span class="line">+ **required(required, [options.isRequired], [options.ErrorConstructor], [message])**</span><br><span class="line"></span><br><span class="line">    为元素添加存在检查器，算是检查器的一个特例，所以同样有错误信息等。并且 ```required``` 属性同样支持函数来自定义存在检查，如果没有进行自定义那么 ```Mongoose``` 会检查这个元素的值是否等于 ```null``` 或者 ```undefined``` 来判断是否存在。**（但是这边的自定义功能感觉和 ```validate``` 有点冗余）**</span><br><span class="line">    </span><br><span class="line">+ **sparse(bool)**</span><br><span class="line"></span><br><span class="line">    为元素添加稀疏索引。**作用是当该元素为空是不进入索引。**</span><br><span class="line">    </span><br><span class="line">+ **unique(bool)**</span><br><span class="line"></span><br><span class="line">    为元素添加唯一索引。**作用是只允许一条索引字段为空的记录存在，之后就不允许插入了。再次插入 记录时会报错。**    </span><br><span class="line">    </span><br><span class="line">+ **text(bool)**</span><br><span class="line"></span><br><span class="line">    为元素添加全文索引。**（全文索引的坑下次和符合索引一起填。）**    </span><br><span class="line">    </span><br><span class="line">### String</span><br><span class="line"></span><br><span class="line">+ **checkRequired(value, doc)**</span><br><span class="line">    </span><br><span class="line">    对于 ```String``` 属性特殊定制的 ```required``` 属性，```required``` 会直接调用字符串的 ```checkRequired``` 方法。会针对字符串，不仅检查是否为空，还会检查长度、类型和原型链，空字符串会被判 ```fail``` 。</span><br><span class="line">    </span><br><span class="line">+ **enum([args...])** </span><br><span class="line"></span><br><span class="line">    一种特殊的检查器，会检查输入的字符串是否在规定的串中，同样有错误信息。</span><br></pre></td></tr></table></figure>
+
+var states = [&apos;opening&apos;, &apos;open&apos;, &apos;closing&apos;, &apos;closed&apos;]
+var s = new Schema({ state: { type: String, enum: states }})
+var M = db.model(&apos;M&apos;, s)
+var m = new M({ state: &apos;invalid&apos; })
+m.save(function (err) {
+  console.error(String(err)) // ValidationError: `invalid` is not a valid enum value for path `state`.
+  m.state = &apos;open&apos;
+  m.save(callback) // success
+})
+
+// or with custom error messages
+var enum = {
+  values: [&apos;opening&apos;, &apos;open&apos;, &apos;closing&apos;, &apos;closed&apos;],
+  message: &apos;enum validator failed for path `{PATH}` with value `{VALUE}`&apos;
+}
+var s = new Schema({ state: { type: String, enum: enum })
+var M = db.model(&apos;M&apos;, s)
+var m = new M({ state: &apos;invalid&apos; })
+m.save(function (err) {
+  console.error(String(err)) // ValidationError: enum validator failed for path `state` with value `invalid`
+  m.state = &apos;open&apos;
+  m.save(callback) // success
+})
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line">    </span><br><span class="line">+ **lowercase(bool)**</span><br><span class="line"></span><br><span class="line">    一种特殊的 ```set``` 属性，会将输入的字符串全部转为小写之后再存入数据库。</span><br><span class="line">    </span><br><span class="line">+ **uppercase(bool)**    </span><br><span class="line">   </span><br><span class="line">   一种特殊的 ```set``` 属性，会将输入的字符串全部转为大写之后再存入数据库。   </span><br><span class="line">    </span><br><span class="line">+ **match(regExp, [message])**</span><br><span class="line">    </span><br><span class="line">    一种特殊的检查器，会检查输入的字符串是否满足正则表达式。空字符串和 ```null``` 会通过这个检查器，所以如果要过滤这些特殊情况还需要添加 ```required``` 属性。</span><br><span class="line">    </span><br><span class="line">+ **maxlength(value, [message])**</span><br><span class="line">    </span><br><span class="line">    一种特殊的检查器，会检查输入的字符串的长度是否比阈值小。会对应错误信息模板中的 ```&#123;MAXLENGTH&#125;``` 。</span><br><span class="line">    </span><br><span class="line">+ **minlength(value, [message])**   </span><br><span class="line">        </span><br><span class="line">    一种特殊的检查器，会检查输入的字符串的长度是否比阈值大。会对应错误信息模板中的 ```&#123;MINLENGTH&#125;``` 。</span><br><span class="line">    </span><br><span class="line">+ **trim(bool)**    </span><br><span class="line">    </span><br><span class="line">    一种特殊的 ```set``` 属性，会将输入字符串先修剪两端的空格再存入数据库。</span><br><span class="line">    </span><br><span class="line">### Number</span><br><span class="line">    </span><br><span class="line">+ **checkRequired(value, doc)**</span><br><span class="line">    </span><br><span class="line">    对于 ```Number``` 属性特殊定制的 ```required``` 属性，```required``` 会直接调用字符串的 ```checkRequired``` 方法。不仅检查是否为 ```null``` 还会检查类型和原型链。</span><br><span class="line"></span><br><span class="line">+ **max(maximum, [message])**</span><br><span class="line"></span><br><span class="line">    一种特殊的检查器，会检查输入的数字是否比阈值小。会对应错误信息模板中的 ```&#123;MAX&#125;``` 。</span><br><span class="line">    </span><br><span class="line">+ **min(value, [message])**</span><br><span class="line"></span><br><span class="line">    一种特殊的检查器，会检查输入的数字是否比阈值大。会对应错误信息模板中的 ```&#123;MIN&#125;``` 。</span><br><span class="line">    </span><br><span class="line">### Date</span><br><span class="line">    </span><br><span class="line">+ **checkRequired(value, doc)**</span><br><span class="line">    </span><br><span class="line">    对于 ```Date``` 属性特殊定制的 ```required``` 属性，```required``` 会直接调用字符串的 ```checkRequired``` 方法。不仅检查是否为 ```null``` 还会检查类型和原型链。</span><br><span class="line">    </span><br><span class="line">+ **expires(when)**</span><br><span class="line"></span><br><span class="line">    为元素添加 ```TTL Index```，这个属性是 ```Date``` 独有的。传入的属性可以是秒数，也可是比较友好的字符串形式。</span><br></pre></td></tr></table></figure>
+
+// expire in 24 hours
+new Schema({ createdAt: { type: Date, expires: 60*60*24 }});
+
+// expire in 24 hours
+new Schema({ createdAt: { type: Date, expires: &apos;24h&apos; }});
+
+// expire in 1.5 hours
+new Schema({ createdAt: { type: Date, expires: &apos;1.5h&apos; }});
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">    </span><br><span class="line">+ **max(maximum, [message])**</span><br><span class="line"></span><br><span class="line">    一种特殊的检查器，会检查输入的数字是否比阈值小。会对应错误信息模板中的 ```&#123;MAX&#125;``` 。输入的值必须是 ```Date``` 类型。</span><br><span class="line">    </span><br><span class="line">+ **min(maximum, [message])**    </span><br><span class="line">    </span><br><span class="line">    一种特殊的检查器，会检查输入的数字是否比阈值大。会对应错误信息模板中的 ```&#123;MIN&#125;``` 。输入的值必须是 ```Date``` 类型。</span><br><span class="line">    </span><br><span class="line">### Object</span><br><span class="line"></span><br><span class="line">+ **auto(bool)**</span><br><span class="line"></span><br><span class="line">    如果打开会自动添加 ```ObjectId``` 到元素的值中。 </span><br><span class="line">    </span><br><span class="line">## Custom</span><br><span class="line">在 ```Mongoose 4.4.0``` 中，支持了自定义 ```Schema Type``` 的功能，新建的 ```Schema Type``` 需要继承自 ```mongoose.SchemaType``` ，与 ```mongoose.SchemaTypes``` 的原型链保持一致，并且需要实现 ```cast()``` 方法。</span><br></pre></td></tr></table></figure></code></pre><p>function Int8(key, options) {<br> mongoose.SchemaType.call(this, key, options, ‘Int8’);<br>}<br>Int8.prototype = Object.create(mongoose.SchemaType.prototype);</p>
+<p>// <code>cast()</code> takes a parameter that can be anything. You need to<br>// validate the provided <code>val</code> and throw a <code>CastError</code> if you<br>// can’t convert it.<br>Int8.prototype.cast = function(val) {<br> var _val = Number(val);<br> if (isNaN(_val)) {<br>   throw new Error(‘Int8: ‘ + val + ‘ is not a number’);<br> }<br> _val = Math.round(_val);<br> if (_val &lt; -0x80 || _val &gt; 0x7F) {<br>   throw new Error(‘Int8: ‘ + val +<br>     ‘ is outside of the range of valid 8-bit ints’);<br> }<br> return _val;<br>};</p>
+<p>// Don’t forget to add <code>Int8</code> to the type registry<br>mongoose.Schema.Types.Int8 = Int8;</p>
+<p>var testSchema = new Schema({ test: Int8 });<br>var Test = mongoose.model(‘Test’, testSchema);</p>
+<p>var t = new Test();<br>t.test = ‘abc’;<br>assert.ok(t.validateSync());<br>assert.equal(t.validateSync().errors[‘test’].name, ‘CastError’);<br>assert.equal(t.validateSync().errors[‘test’].message,<br> ‘Cast to Int8 failed for value “abc” at path “test”‘);<br>assert.equal(t.validateSync().errors[‘test’].reason.message,<br> ‘Int8: abc is not a number’);</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">## Creating from ES6 Classes Using</span><br><span class="line">```Mongoose``` 同样支持了 ```ES6``` 的 ```Class``` 特性，可以使用 ```Class``` 新建类之后使用 ```loadClass()``` 导入， </span><br><span class="line"></span><br><span class="line">+ ```getter/setter``` 函数对应 ```get/set</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>类方法对应 <figure class="highlight plain"><figcaption><span>的方法</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">+ 静态方法对应 ```Model``` 静态方法。</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>const schema = new Schema({ firstName: String, lastName: String });</p>
+<p>class PersonClass {<br> // <code>fullName</code> becomes a virtual<br> get fullName() {<br>   return <code>${this.firstName} ${this.lastName}</code>;<br> }</p>
+<p> set fullName(v) {<br>   const firstSpace = v.indexOf(‘ ‘);<br>   this.firstName = v.split(‘ ‘)[0];<br>   this.lastName = firstSpace === -1 ? ‘’ : v.substr(firstSpace + 1);<br> }</p>
+<p> // <code>getFullName()</code> becomes a document method<br> getFullName() {<br>   return <code>${this.firstName} ${this.lastName}</code>;<br> }</p>
+<p> // <code>findByFullName()</code> becomes a static<br> static findByFullName(name) {<br>   const firstSpace = name.indexOf(‘ ‘);<br>   const firstName = name.split(‘ ‘)[0];<br>   const lastName = firstSpace === -1 ? ‘’ : name.substr(firstSpace + 1);<br>   return this.findOne({ firstName, lastName });<br> }<br>}</p>
+<p>schema.loadClass(PersonClass);<br>var Person = db.model(‘Person’, schema);</p>
+<p>Person.create({ firstName: ‘Jon’, lastName: ‘Snow’ }).<br> then(doc =&gt; {<br>   assert.equal(doc.fullName, ‘Jon Snow’);<br>   doc.fullName = ‘Jon Stark’;<br>   assert.equal(doc.firstName, ‘Jon’);<br>   assert.equal(doc.lastName, ‘Stark’);<br>   return Person.findByFullName(‘Jon Snow’);<br> }).<br> then(doc =&gt; {<br>   assert.equal(doc.fullName, ‘Jon Snow’);<br> });<br>``` </p>
+	  
+	</div>
+
+	<div>
+  	<center>
+	<div class="pagination">
+
+    
+    
+    <a href="/2017/09/14/a11/" type="button" class="btn btn-default"><i
+                class="fa fa-arrow-circle-o-left"></i> Prev</a>
+    
+
+    <a href="/" type="button" class="btn btn-default"><i class="fa fa-home"></i>Home</a>
+    
+    <a type="button" class="btn btn-default disabled">Next<i class="fa fa-arrow-circle-o-right"></i></a>
+    
+
+    
+</div>
+
+    </center>
+	</div>
+	
+	<!-- comment -->
+	
+<section id="comment">
+    <h2 class="title">Comments</h2>
+
+    
+</section>
+
+
+	</div> <!-- col-md-9/col-md-12 -->
+		
+	
+	<div id="side_meta">
+		<div class="col-md-3" id="post_meta"> 
+
+	<!-- date -->
+	
+	<div class="meta-widget">
+	<i class="fa fa-clock-o"></i>
+	2017-08-16 
+	</div>
+	
+
+	<!-- categories -->
+    
+
+	<!-- tags -->
+	
+	<div class="meta-widget">
+	<a data-toggle="collapse" data-target="#tags"><i class="fa fa-tags"></i></a>		  
+    <ul id="tags" class="tag_box list-unstyled collapse in">	  
+	    
+  <li><a href="/tags/mongodb/">mongodb<span>2</span></a></li>
+    </ul>
+	</div>
+		
+
+	<!-- toc -->
+	<div class="meta-widget">
+	
+	   <a data-toggle="collapse" data-target="#toc"><i class="fa fa-bars"></i></a>
+	   <div id="toc" class="toc collapse in">
+		   <span class="toc-title">Contents</span>
+			<ol class="toc-article"><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#Schema-Type"><span class="toc-article-text">Schema Type</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#Usage-notes"><span class="toc-article-text">Usage notes</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Date"><span class="toc-article-text">Date</span></a></li></ol></li></ol>
+		</div>
+	
+	</div>
+	
+    <hr>
+	
+</div><!-- col-md-3 -->
+
+	</div>
+		
+
+</div><!-- row -->
+
+
+
+	</div>
+  </div>
+  <div class="container-narrow">
+  <footer> <p>
+  &copy; 2019 TalkWithKeyboard
+  
+      with help from <a href="http://hexo.io/" target="_blank">Hexo</a>,<a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind</a>,<a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a> and <a href="http://getbootstrap.com/" target="_blank">BOOTSTRA.386</a>. 
+     <br> Theme by <a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind.386</a>.    
+</p>
+ </footer>
+</div> <!-- container-narrow -->
+  
+
+
+  
+<a id="gotop" href="#">   
+  <span>⬆︎TOP</span>
+</a>
+
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/search.js"></script> 
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+
+
+   <script type="text/javascript">      
+     var search_path = "search.xml";
+	 if (search_path.length == 0) {
+	 	search_path = "search.xml";
+	 }
+	 var path = "/" + search_path;
+     searchFunc(path, 'local-search-input', 'local-search-result');
+   </script>
+
+</body>
+   </html>

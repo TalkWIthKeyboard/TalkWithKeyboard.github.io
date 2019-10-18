@@ -1,0 +1,376 @@
+<!DOCTYPE HTML>
+<html>
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="utf-8">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="cache-control" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  
+  <title>锁 | GRYFFONDOR</title>
+  <meta name="author" content="TalkWithKeyboard">
+  
+  <meta name="description" content="在很多的多线程编程场景下都会遇到多个线程对一个资源进行操作访问的情况，这种场景一旦发生就会牵扯到线程安全问题。为了保证程序的正确性，我们不得不花很大的力气去解决这些线程安全问题。在Java中解决线程安全问题的办法被分为了三种，其一是互斥同步，其二是非阻塞同步，其三是无同步方案。前两种的实现形式都是锁">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="锁">
+  <meta property="og:site_name" content="GRYFFONDOR">
+
+  
+    <meta property="og:image" content>
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="/css/bootstrap.min.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/font-awesome.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/responsive.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/highlight.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/google-fonts.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+
+  <script src="/js/jquery-2.0.3.min.js"></script>
+
+</head>
+</html>
+ <body>  
+  <nav id="main-nav" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+      <button type="button" class="navbar-header navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+	  <a class="navbar-brand" href="/">GRYFFONDOR</a>
+      <div class="collapse navbar-collapse nav-menu">
+		<ul class="nav navbar-nav">
+		  
+		  <li>
+			<a href="/archives" title="All the articles.">
+			  <i class=""></i>Archives
+			</a>
+		  </li>
+		  
+		  <li>
+			<a href="/atom.xml" title="Subscribe me.">
+			  <i class=""></i>RSS
+			</a>
+		  </li>
+		  
+		</ul>
+      </div>
+    </div> <!-- container -->
+</nav>
+<div class="clearfix"></div>
+
+  <div class="container">
+  	<div class="content">
+    	 
+
+
+	
+		<div class="page-header">
+			<h1> 锁</h1>
+		</div>
+	
+
+
+
+<div class="row post">
+	<!-- cols -->
+	
+	<div id="top_meta"></div>
+	<div class="col-md-9">
+	
+
+	<!-- content -->
+	<div class="mypage">		
+	  		
+
+	  <p>在很多的多线程编程场景下都会遇到多个线程对一个资源进行操作访问的情况，这种场景一旦发生就会牵扯到线程安全问题。为了保证程序的正确性，我们不得不花很大的力气去解决这些线程安全问题。在Java中解决线程安全问题的办法被分为了三种，其一是互斥同步，其二是非阻塞同步，其三是无同步方案。前两种的实现形式都是锁，第三种是通过设计模式的转变来将代码转变为不共享变量的形式，这不在这篇博客的讨论范围中。</p>
+<h2 id="线程不安全"><a href="#线程不安全" class="headerlink" title="线程不安全"></a>线程不安全</h2><p>首先我们来分析一下线程安全问题产生的底层原因到底是什么？先看下面的代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> io.talkwithkeyboard.code;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MultiThreadIncrease</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> race = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">increase</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        race = race + <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> <span class="keyword">int</span> THREAD_COUNT = <span class="number">20</span>;</span><br><span class="line">        Thread[] threads = <span class="keyword">new</span> Thread[THREAD_COUNT];</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; THREAD_COUNT; i++) &#123;</span><br><span class="line">            threads[i] = <span class="keyword">new</span> Thread(() -&gt; &#123;</span><br><span class="line">                System.out.format(<span class="string">"This is %d thread.\n"</span>, Thread.currentThread().getId());</span><br><span class="line">                <span class="keyword">for</span> (<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">10000</span>; j++) &#123;</span><br><span class="line">                    increase();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">            threads[i].start();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">while</span> (Thread.activeCount() &gt; <span class="number">2</span>) &#123;</span><br><span class="line">            Thread.yield();</span><br><span class="line">        &#125;</span><br><span class="line">        System.out.println(race);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>首先解释一个细节，因为我的代码是在Idea里跑的，所以不仅是有<code>Main thread</code>，还有一个<code>Monitor Ctrl-Break</code>的守护线程。所以代码中是<code>Thread.activeCount() &gt; 2</code>。如果直接使用<code>java</code>执行的话，这里是1即可。然后上面的代码做了一个很简单的事情，开了20个线程，每个线程做一件事情，对<code>race</code>这个变量累加10000次，最后输出。最后的结果显然不是200000，会小很多并且每次都不一样。这是为什么呢？</p>
+<p>是因为<code>race = race + 1</code>这一行代码其实做了三件事情：</p>
+<ul>
+<li><ol>
+<li>取出<code>race</code>现有的值</li>
+</ol>
+</li>
+<li><ol start="2">
+<li>给<code>race</code>现有的值加上1</li>
+</ol>
+</li>
+<li><ol start="3">
+<li>将更新后的值再附给<code>race</code></li>
+</ol>
+</li>
+</ul>
+<p>我们理想的状态是，每个线程顺序的做完这三件事：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">thread1.1  // race=0</span><br><span class="line">thread1.2  // race=0</span><br><span class="line">thread1.3  // race=1</span><br><span class="line">thread2.1  // race=1</span><br><span class="line">thread2.2  // race=1</span><br><span class="line">thread2.3  // race=2</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>但实际是：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">thread1.1  // race=0</span><br><span class="line">thread2.1  // race=0</span><br><span class="line">thread2.2  // race=0</span><br><span class="line">thread1.2  // race=0</span><br><span class="line">thread1.3  // race=1</span><br><span class="line">thread2.3  // race=1</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>甚至更加的混乱，这就造成代码运行结果错误的现象，也就是出现了线程不安全行为。那么为了规避这样的行为，就需要引出锁的概念，悲观锁就是互斥同步的实现，乐观锁是非阻塞同步的实现。</p>
+<h2 id="互斥同步-悲观锁"><a href="#互斥同步-悲观锁" class="headerlink" title="互斥同步 悲观锁"></a>互斥同步 悲观锁</h2><p>首先我们看看《深入理解JVM》中对互斥同步的定义，”互斥同步是常见的一种并发正确性保障手段。同步是指在多个线程并发访问共享数据时，保证共享数据在同一个时刻只被一个（或者一些，使用信号量的时候）线程使用。而互斥是实现同步的一种手段，临界区、互斥量和信号量都是主要的互斥实现方式。因此，在这4个字里面，互斥是因，同步是果；互斥是方法，同步是目的。“</p>
+<h3 id="synchronized"><a href="#synchronized" class="headerlink" title="synchronized"></a>synchronized</h3><p>而如何保证共享数据在同一个时刻只被一个线程使用？那么就需要在这个数据被使用之前就为期加上锁，只有获得锁的线程能够对其进行操作，而这样的锁就被称为悲观锁。在Java中，最基本的实现就是<code>synchronized</code>关键字。其实现的原理是在编译后会在同步块的前后分别形成<code>monitorenter</code>和<code>monitorexit</code>这两个字节码指令，这两个字节码指令都需要一个reference类型的参数来指明要锁定和解锁的对象。如果指明的是对象参数，那就是这个对象的reference；如果没有明确指定，那就根据<code>synchronized</code>的是实例还是类方法，去取对应的对象实例或Class对象来作为锁对象。先看下面的例子，对比一下添加<code>synchronized</code>关键字前后的字节码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> io.talkwithkeyboard.code;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">NoSynchronized</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> race = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">increase</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        race = race + <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String args[])</span> </span>&#123;</span><br><span class="line">        <span class="keyword">new</span> NoSynchronized().increase();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过javap工具来获取字节码：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> javap -verbose -p io.talkwithkeyboard.code.NoSynchronized</span><br></pre></td></tr></table></figure>
+
+<p>我们只关注<code>increase</code>方法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">public void increase();</span><br><span class="line">    descriptor: ()V</span><br><span class="line">    flags: ACC_PUBLIC</span><br><span class="line">    Code:</span><br><span class="line">      stack=2, locals=1, args_size=1</span><br><span class="line">         0: getstatic     #2                  // Field race:I</span><br><span class="line">         3: iconst_1</span><br><span class="line">         4: iadd</span><br><span class="line">         5: putstatic     #2                  // Field race:I</span><br><span class="line">         8: return</span><br></pre></td></tr></table></figure>
+
+<p>那么在添加<code>synchronized</code>关键字后：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> io.talkwithkeyboard.code;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">WithSynchronized</span> </span>&#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> race = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">increase</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">synchronized</span> (<span class="keyword">this</span>) &#123;</span><br><span class="line">            race = race + <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String args[])</span> </span>&#123;</span><br><span class="line">        <span class="keyword">new</span> WithSynchronized().increase();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>还是只关注<code>increase</code>方法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">public void increase();</span><br><span class="line">    descriptor: ()V</span><br><span class="line">    flags: ACC_PUBLIC</span><br><span class="line">    Code:</span><br><span class="line">      stack=2, locals=3, args_size=1</span><br><span class="line">         0: aload_0</span><br><span class="line">         1: dup</span><br><span class="line">         2: astore_1</span><br><span class="line">         3: monitorenter</span><br><span class="line">         4: getstatic     #2                  // Field race:I</span><br><span class="line">         7: iconst_1</span><br><span class="line">         8: iadd</span><br><span class="line">         9: putstatic     #2                  // Field race:I</span><br><span class="line">        12: aload_1</span><br><span class="line">        13: monitorexit</span><br><span class="line">        14: goto          22</span><br><span class="line">        17: astore_2</span><br><span class="line">        18: aload_1</span><br><span class="line">        19: monitorexit</span><br><span class="line">        20: aload_2</span><br><span class="line">        21: athrow</span><br><span class="line">        22: return</span><br></pre></td></tr></table></figure>
+
+<p>字节码描述的过程是：</p>
+<ul>
+<li><ol start="0">
+<li>将类对象入栈</li>
+</ol>
+</li>
+<li><ol>
+<li>复制栈顶元素（即类对象的引用）</li>
+</ol>
+</li>
+<li><ol start="2">
+<li>将栈顶元素（类对象）存储到局部变量表Slot 1中</li>
+</ol>
+</li>
+<li><ol start="3">
+<li>以栈顶元素做为锁开始同步</li>
+</ol>
+</li>
+<li><ol start="4">
+<li>取获取类的静态字段（race），将其值压入栈顶</li>
+</ol>
+</li>
+<li><ol start="7">
+<li>int型常量1进栈</li>
+</ol>
+</li>
+<li><ol start="8">
+<li>对操作数栈上的两个数值进行加法，结果压入栈顶</li>
+</ol>
+</li>
+<li><ol start="9">
+<li>用栈顶元素给类的静态字段（race）赋值</li>
+</ol>
+</li>
+<li><ol start="12">
+<li>将局部变量表Slot 1中的类对象入栈</li>
+</ol>
+</li>
+<li><ol start="13">
+<li>退出同步</li>
+</ol>
+</li>
+<li><ol start="14">
+<li>方法正常结束，跳转到22返回</li>
+</ol>
+</li>
+<li><ol start="17">
+<li>从这步开始是异常路径，暂不赘述</li>
+</ol>
+</li>
+</ul>
+<p>在展示了整个<code>synchronized</code>关键字的代码流程以后，我们再深究一下<code>monitorenter</code>指令和<code>monitorexit</code>指令在机器码成面到底做了什么。为了阅读方便，我们先不展示机器码的内容，而是从虚拟机规范出发，在执行<code>monitorenter</code>指令的时，首先要尝试获取对象的锁。如果这个对象没有被锁定，或者当前线程已经拥有了那个对象的锁，把锁的计数器加1。相应的，在执行<code>monitorexit</code>指令的时候，把锁的计数器减1，当计数器为0的时候，锁就被释放掉。</p>
+<h3 id="ReentrantLock"><a href="#ReentrantLock" class="headerlink" title="ReentrantLock"></a>ReentrantLock</h3><p>以上就是锁的整个低层实现过程，在Java中其实还有更上层的锁封装能实现更多特性的锁，那就是<code>ReentrantLock</code>类，它和<code>synchronized</code>关键字一样都是悲观锁的实现。但是相比<code>synchronized</code>，增加了一些高级功能，主要是以下三点：</p>
+<ul>
+<li>等待可中断：当持有锁的线程长期不释放锁的时候，正在等待的线程可以选择放弃等待，改为处理其他事情，可中断特性对处理执行时间非常长的同步块很有帮助。<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// lock() 实现</span></span><br><span class="line"><span class="function"><span class="keyword">final</span> <span class="keyword">boolean</span> <span class="title">acquireQueued</span><span class="params">(<span class="keyword">final</span> Node node, <span class="keyword">int</span> arg)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">boolean</span> failed = <span class="keyword">true</span>;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="keyword">boolean</span> interrupted = <span class="keyword">false</span>;</span><br><span class="line">            <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">                <span class="keyword">final</span> Node p = node.predecessor();</span><br><span class="line">                <span class="keyword">if</span> (p == head &amp;&amp; tryAcquire(arg)) &#123;</span><br><span class="line">                    setHead(node);</span><br><span class="line">                    p.next = <span class="keyword">null</span>; <span class="comment">// help GC</span></span><br><span class="line">                    failed = <span class="keyword">false</span>;</span><br><span class="line">                    <span class="keyword">return</span> interrupted;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">if</span> (shouldParkAfterFailedAcquire(p, node) &amp;&amp;</span><br><span class="line">                    parkAndCheckInterrupt())</span><br><span class="line">                    interrupted = <span class="keyword">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> (failed)</span><br><span class="line">                cancelAcquire(node);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="comment">// lockInterruptibly() 实现</span></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">doAcquireInterruptibly</span><span class="params">(<span class="keyword">int</span> arg)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> Node node = addWaiter(Node.EXCLUSIVE);</span><br><span class="line">        <span class="keyword">boolean</span> failed = <span class="keyword">true</span>;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">                <span class="keyword">final</span> Node p = node.predecessor();</span><br><span class="line">                <span class="keyword">if</span> (p == head &amp;&amp; tryAcquire(arg)) &#123;</span><br><span class="line">                    setHead(node);</span><br><span class="line">                    p.next = <span class="keyword">null</span>; <span class="comment">// help GC</span></span><br><span class="line">                    failed = <span class="keyword">false</span>;</span><br><span class="line">                    <span class="keyword">return</span>;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">if</span> (shouldParkAfterFailedAcquire(p, node) &amp;&amp;</span><br><span class="line">                    parkAndCheckInterrupt())</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> InterruptedException();</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> (failed)</span><br><span class="line">                cancelAcquire(node);</span><br><span class="line">        &#125;</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p>可以看到在<code>lock()</code>和<code>lockInterruptibly()</code>源码的实现中，唯一的区别是在一直等待锁的过程中，<code>lock()</code>会吞掉中断，近记录中断状态，而<code>lockInterruptibly()</code>会抛异常到上层，交给上面的业务逻辑进行处理。</p>
+<ul>
+<li>公平锁：多个线程在等待同一个锁时，必须按照申请锁的时间顺序来依次获得锁，而非公平锁是不能保证这一点的。<code>synchronized</code>就是非公平锁，可以通过 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">final</span> ReentrantLock lock = <span class="keyword">new</span> ReentrantLock(<span class="keyword">true</span>);</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p>来创建公平锁。</p>
+<ul>
+<li>可以绑定多个条件：主要是处理生产者消费者模型，由于篇幅这里暂不赘述。</li>
+</ul>
+<h3 id="volatile"><a href="#volatile" class="headerlink" title="volatile"></a>volatile</h3><p><code>volatile</code>可以说是Java中最轻量化级的同步机制，在一定程度上也是可以当作对象的锁来进行使用的，但是在功能上还是不能完全替代被<code>synchronized</code>作用的对象。当一个变量定义为<code>volatile</code>之后，它将具备两种特性，第一是当一个线程修改了这个变量的值，新值对于其他线程来说是立即得知的，这就是可见性。第二个语义是禁止指令重排序优化。</p>
+<p>首先介绍一下可见性是如何实现的？普通变量在被一个线程修改之后，会向主内存进行回写，只有等到主内存回写完成以后，其他的线程才能读到新的值。 而被<code>volatile</code>修饰的变量在赋值后会产生一个<code>lock addl $0x0,(%esp)</code>向寄存器中加0的空操作，这个操作能使用本CPU的Cache写入内核，并使别的CPU或者别的内核无效化Cache。相当于将工作内存中的变量拿到了主内存当中，正是因为此让<code>volatile</code>修饰的变量马上对其他线程可见。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> io.talkwithkeyboard.code;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">VolatileControl</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">volatile</span> <span class="keyword">static</span> <span class="keyword">boolean</span> shutdownRequested = <span class="keyword">false</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">shutdown</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        shutdownRequested = <span class="keyword">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">doWork</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">long</span> loopCount = <span class="number">100000000</span>;</span><br><span class="line">        System.out.println(Thread.currentThread().getId() + <span class="string">":"</span> + loopCount);</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; loopCount; i++) &#123;</span><br><span class="line">            <span class="keyword">if</span> (shutdownRequested) &#123;</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        System.out.println(Thread.currentThread().getId() + <span class="string">":"</span> + <span class="string">"shutdown!"</span>);</span><br><span class="line">        shutdown();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> <span class="keyword">int</span> THREAD_COUNT = <span class="number">10</span>;</span><br><span class="line">        Thread[] threads = <span class="keyword">new</span> Thread[THREAD_COUNT];</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; THREAD_COUNT; i ++) &#123;</span><br><span class="line">            threads[i] = <span class="keyword">new</span> Thread(() -&gt; <span class="keyword">new</span> VolatileControl().doWork());</span><br><span class="line">            threads[i].start();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> (Thread.activeCount() &gt; <span class="number">2</span>) &#123;</span><br><span class="line">            Thread.yield();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>比如在这个例子当中，让每个线程都循环100000000次，在大多数情况下最后可以看到<code>shutdown!</code>只被打印了一次。但是一旦去掉<code>volatile</code>修饰以后，就会看到很多个<code>shutdown!</code>被打印出来，这就是因为很多线程在<code>shutdownRequested</code>被修改以后，都读到了老版本的值，出现了线程不安全的情况。而<code>volatile</code>从表现来看基本上达到了为<code>shutdownRequested</code>加锁的效果。但是刚才也提到了我们是在大多数情况下是只看到一次<code>shutdown!</code>，这是为什么呢？可以先看一个更加容易复现的例子：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> io.talkwithkeyboard.code;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">VolatileIncrease</span> </span>&#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">volatile</span> <span class="keyword">int</span> race = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">increase</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        race = race + <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> <span class="keyword">int</span> THREAD_COUNT = <span class="number">20</span>;</span><br><span class="line">        Thread[] threads = <span class="keyword">new</span> Thread[THREAD_COUNT];</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; THREAD_COUNT; i++) &#123;</span><br><span class="line">            threads[i] = <span class="keyword">new</span> Thread(() -&gt; &#123;</span><br><span class="line">                <span class="keyword">for</span> (<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">10000</span>; j++) &#123;</span><br><span class="line">                    increase();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">            threads[i].start();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> (Thread.activeCount() &gt; <span class="number">2</span>) &#123;</span><br><span class="line">            Thread.yield();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        System.out.println(race);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>还是上面出现过的，每个线程都给<code>race</code>累加值的代码，只不过现在会用<code>volatile</code>进行修饰。<code>volatile</code>的特性又是值被修改后立即能被其他线程看见，那么这个例子就应该输出正确的结果200000，但是运行后会发现还是出现了上面提到的线程不安全的问题。那么这是不是和<code>volatile</code>的描述不符呢？我们还是输出字节码来看看：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">public static void increase();</span><br><span class="line">    descriptor: ()V</span><br><span class="line">    flags: ACC_PUBLIC, ACC_STATIC</span><br><span class="line">    Code:</span><br><span class="line">      stack=2, locals=0, args_size=0</span><br><span class="line">         0: getstatic     #2                  // Field race:I</span><br><span class="line">         3: iconst_1</span><br><span class="line">         4: iadd</span><br><span class="line">         5: putstatic     #2                  // Field race:I</span><br><span class="line">         8: return</span><br></pre></td></tr></table></figure>
+
+<p>可以看到问题是出在<code>race = race + 1</code>上面，到字节码层面上这个操作已经被拆分成了4条指令，并且不具备事务性了。<code>volatile</code>能保证的是<code>getstatic</code>能取到最新的值，但是在<code>iadd</code>操作的时候其他线程可能已经把这个值加大了。在上面的例子当中同理，在将<code>shutdownRequested</code>赋值为true的时候，可能其他线程已经赋值成功，但是当前线程不可见。所以<code>volatile</code>的作用是非常轻微的，只能够保证在取值的时候能取到最新值，当一个操作的事务性无法保证的时候，<code>volatile</code>也不能提供锁的性质。至于防止指令重拍和题目相关性不强，这里先不做赘述。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>在《深入理解JVM虚拟机》中，有对<code>synchronized</code>和<code>ReentrantLock</code>进行性能对比，通过对<code>synchronized</code>的优化，性能基本上持平。并且提供因为团队会更偏向于优化原生的<code>synchronized</code>关键字，所以当两个都能使用的时候可以优先使用<code>synchronized</code>关键字，需要更高阶的功能时，再选择<code>ReentrantLock</code>。但是因为阻塞的实现方式，这两种实现都会阻塞后面其他的线程进入，而Java的线程是映射到操作系统的原生线程之上的，如果一个线程要阻塞或唤醒，都是需要操作系统从用户态切换到核心态来进行帮忙的，所以需要非常谨慎的时候，在一定情况下是可以使用<code>volatile</code>关键字来进行替代的，以提高性能。</p>
+<h2 id="非阻塞同步-乐观锁"><a href="#非阻塞同步-乐观锁" class="headerlink" title="非阻塞同步 乐观锁"></a>非阻塞同步 乐观锁</h2><p>由于悲观锁的实现中涉及到加锁、用户态核心态切换、维护锁计数器和检查是否有被阻塞线程需要被唤醒等复杂的操作，在执行效率上大打折扣。随着硬件指令集的发展，又多了一种锁实现方案，也就是乐观锁，其主要的思想是：先进行操作，如果没有竞争则操作成功，如果有竞争，那就再采取其他的补偿措施。这种实现方式下，不需要将线程挂起，因此也称为非阻塞同步。</p>
+<h3 id="Compare-and-Swap"><a href="#Compare-and-Swap" class="headerlink" title="Compare-and-Swap"></a>Compare-and-Swap</h3><p>乐观锁的一个实现关键是需要让“现在的值等于旧预期值时，将新预期值写入”这个操作原子化，而这也依赖于硬件指令集的发展，出现了<code>CAS(Compare-and-Swap)</code>指令来完成这个任务。CAS指令需要三个操作数，分别是内存位置V、旧的预期值A、新的预期值B。CAS指令执行时，当且仅当V符合旧的预期值A的时候，处理器用新值B更新V的值，否则它就不执行更新，但是无论是否更新了V的值，都会返回V的旧值，并且上述的过程是原子性的。在JDK1.5之后，<code>sun.misc.Unsafe</code>类的<code>compareAndSwapInt()</code>和<code>compareAndSwapLong()</code>等几个操作都依靠CAS指令执行，虚拟机内部对这些方法做了特殊处理，即时编译出来的结果就是一条平台相关的处理器CAS指令。在更上层中的接口中，<code>AtomicInteger.incerementAndGet()</code>等使用了<code>Unsafe</code>的低层接口。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> io.talkwithkeyboard.code;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.concurrent.atomic.AtomicInteger;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MultiThreadAtomicIncrease</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> AtomicInteger race = <span class="keyword">new</span> AtomicInteger(<span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">insert</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        race.incrementAndGet();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> <span class="keyword">int</span> THREAD_COUNT = <span class="number">20</span>;</span><br><span class="line">        Thread[] threads = <span class="keyword">new</span> Thread[THREAD_COUNT];</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; THREAD_COUNT; i++) &#123;</span><br><span class="line">            threads[i] = <span class="keyword">new</span> Thread(() -&gt; &#123;</span><br><span class="line">                <span class="keyword">for</span> (<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">10000</span>; j++) &#123;</span><br><span class="line">                    insert();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">            threads[i].start();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> (Thread.activeCount() &gt; <span class="number">2</span>) &#123;</span><br><span class="line">            Thread.yield();</span><br><span class="line">        &#125;</span><br><span class="line">        System.out.println(race.get());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用乐观锁来对上面多线程累加的程序进行优化，运行程序可以看到正确的结果。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">int</span> <span class="title">incrementAndGet</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> unsafe.getAndAddInt(<span class="keyword">this</span>, valueOffset, <span class="number">1</span>) + <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>incrementAndGet</code>方法就是对<code>Unsafe</code>类的<code>getAndAddInt</code>方法进行了封装，而<code>getAndAddInt</code>在低层使用了和CAS类似的指令<code>Fetch-and-Increment</code>，将获取值和累加两个操作进行原子化封装。而在早期的JDK实现中，是使用CAS指令进行完成，不断尝试将比现在值大1的值写入。这个优化也是硬件指令集的进一步丰富带来的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">int</span> <span class="title">getAndIncrement</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">        <span class="keyword">int</span> current = get();</span><br><span class="line">        <span class="keyword">int</span> next = current + <span class="number">1</span>;</span><br><span class="line">        <span class="keyword">if</span> (compareAndSet(current, next))</span><br><span class="line">            <span class="keyword">return</span> current;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="锁优化"><a href="#锁优化" class="headerlink" title="锁优化"></a>锁优化</h2><h3 id="自旋锁"><a href="#自旋锁" class="headerlink" title="自旋锁"></a>自旋锁</h3><p>因为互斥同步对性能的消耗非常大，并且JVM团队发现大量的锁定状态只会持续很短的一段时间，这个时间远小于对CPU的用户态和内核态切换时间。所以就想出来一个办法不轻易的对线程进行阻塞，而使用忙循环（自旋）来替代。不过自旋也不是完全优于阻塞的，虽然省下了线程切换的开销，不过忙循环会占用处理器时间，所以如果锁定状态时间较短使用自旋是划算的，锁定状态时间较长就会浪费处理器资源，带来性能的消耗。因此现在的实现中，会规定一个自旋的上限，当达到上限以后就转为重锁的方式挂起线程。现在高版本的JDK中自旋是默认开启的，Java用户可以通过<code>-XX:PreBlockSpin</code>来修改自旋的次数。</p>
+<p>并且为了进一步的提高自旋锁的性能，在JDK1.6提出了自适应的自旋锁，每次自旋的时间不固定，而是由前一次在同一个锁上的自旋时间以及锁的拥有者的状态决定。如果在一个锁对象上，通过自旋的方式经常成功获得过锁，并且持有锁的进程正在运行中，那么这次自旋有较大可能获得锁，就可以等待较多的自旋次数。如果在一个锁对象上从来没有成功通过自旋获得锁，那么就直接省去自旋步骤，直接进入重锁。</p>
+<h3 id="锁消除"><a href="#锁消除" class="headerlink" title="锁消除"></a>锁消除</h3><p>锁消除是指开发人员虽然要求一段代码块需要上锁，同步执行。但是被JVM检测到存在不可能存在共享数据竞争的锁，就会自动将其消除掉。这个检测主要依赖逃逸分析的数据支持，如果判断在一段代码中，堆上的所有数据都不会逃逸出去被其他线程访问到，那就可以把它当作栈上数据对待，认为他们是线程私有的，就不用加锁。</p>
+<h3 id="锁粗化"><a href="#锁粗化" class="headerlink" title="锁粗化"></a>锁粗化</h3><p>很多时候我们都希望加锁的作用范围限制的尽可能的小，这样可以缩短锁状态的持续时间，让等待的线程尽快的获得锁。但是偶尔会出现一系列连续的操作都对同一个对象反复加锁和解锁，甚至加锁操作出现在循环体中的，这样频繁的进行互斥同步会极大的降低执行效率，这时候虚拟机探测到有这样一串零碎的操作都对一个对象加锁，就会把加锁的范围粗化到整个操作序列的外部，这样加锁一次就可以了。就还是用上面的例子举例，每次<code>increase</code>操作都有加锁解锁的步骤，这时就会把锁粗化到for循环的外部。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> io.talkwithkeyboard.code;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MultiThreadIncreaseSync</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> race = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title">increase</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        race = race + <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> <span class="keyword">int</span> THREAD_COUNT = <span class="number">20</span>;</span><br><span class="line">        Thread[] threads = <span class="keyword">new</span> Thread[THREAD_COUNT];</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; THREAD_COUNT; i++) &#123;</span><br><span class="line">            threads[i] = <span class="keyword">new</span> Thread(() -&gt; &#123;</span><br><span class="line">                <span class="keyword">for</span> (<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">10000</span>; j++) &#123;</span><br><span class="line">                    increase();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">            threads[i].start();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> (Thread.activeCount() &gt; <span class="number">2</span>) &#123;</span><br><span class="line">            Thread.yield();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        System.out.println(race);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="轻量级锁"><a href="#轻量级锁" class="headerlink" title="轻量级锁"></a>轻量级锁</h3><p>轻量级锁的优化方向是使用CAS代替互斥量的开销，并且依据经验“对于绝大多数的锁，在整个同步周期内都是不存在竞争的”，假设没有竞争那么CAS操作就避免了互斥量的开销，但是如果存在竞争，轻量锁最终会膨胀为重量锁，不仅有互斥量的开销，还多了CAS操作。在HotSpot虚拟机中，对象头由两部分组成，一部分是非固定数据结构的，用来储存对象自身的运行时数据，如哈希值，GC分带年龄等数据，官方称为”Mark word”；另一部分用于储存指向方法区对象类型数据的指针，这一部分先不关注。而“Mark word”就是锁实现的关键，我们以32位的HotSpot举例，32bit的”Mark word”中除了2bit用于存储锁标志位外，其他的30bit所保存的内容都根据锁状态发生变化：</p>
+<ul>
+<li>当处于未锁定（标志位为01）时，29bit存储了对象哈希值、对象分代年龄等</li>
+<li>需要加锁时，先检查是否处于未锁定状态，如果是，在当前线程的栈帧中建立一个名为锁记录（Lock Record）的空间，用于存储当前锁对象”Mark word”的拷贝</li>
+<li>使用CAS操作将其余30bit更新为指向锁记录的指针<ul>
+<li>这些动作成功了，改变标志位（00是轻量级锁），这个线程就拥有了该对象的锁</li>
+<li>如果失败了，虚拟机会检查对象的Mark word是否指向当前线程，如果是则说明当前线程已经获得锁，则直接进入同步块执行。否则这个锁对象已经被其他的线程抢占了。这时候轻量锁膨胀为重量锁，标志位改为10，Mark word指向重量锁，后面的线程进入阻塞状态。</li>
+</ul>
+</li>
+<li>当执行完同步块，使用CAS操作将对象当前的Mark word与之前存储的老Mark word拷贝进行交换，完成解锁。</li>
+</ul>
+<h3 id="偏向锁"><a href="#偏向锁" class="headerlink" title="偏向锁"></a>偏向锁</h3><p>偏向锁的优化方向是在不存在竞争时直接去掉同步原语，当锁对象第一次被线程获取的时候，虚拟机会将标志位改为01，即偏向模式，同时使用CAS操作把获取到的锁的线程ID记录在Mark word之中，如果操作成功，这个线程就拥有了该对象的锁。之后当持有偏向锁的线程进入同步块的时候，虚拟机不需要做任何操作，而在轻量锁中，还是需要尝试检查锁定状态，以及对象的Mark word是否指向自己。当有其他线程尝试获取锁的时候，偏向锁就膨胀为轻量锁。偏向锁可以提高带有同步但无竞争的程序性能，但是如果程序中大多数的锁总是被多个不同的线程访问，那偏向模式就是多余的。可以通过<code>-XX:-UseBiasedLocking</code>来进行禁止。</p>
+<p><img src="/images/a-14-1.jpg" alt="a-14-1"></p>
+<h2 id="End"><a href="#End" class="headerlink" title="End"></a>End</h2><p>参考资料：《深入理解Java虚拟机》</p>
+	  
+	</div>
+
+	<div>
+  	<center>
+	<div class="pagination">
+
+    
+    
+    <a type="button" class="btn btn-default disabled"><i class="fa fa-arrow-circle-o-left"></i>Prev</a>
+    
+
+    <a href="/" type="button" class="btn btn-default"><i class="fa fa-home"></i>Home</a>
+    
+    <a href="/2019/09/28/a6/" type="button" class="btn btn-default ">Next<i
+                class="fa fa-arrow-circle-o-right"></i></a>
+    
+
+    
+</div>
+
+    </center>
+	</div>
+	
+	<!-- comment -->
+	
+<section id="comment">
+    <h2 class="title">Comments</h2>
+
+    
+</section>
+
+
+	</div> <!-- col-md-9/col-md-12 -->
+		
+	
+	<div id="side_meta">
+		<div class="col-md-3" id="post_meta"> 
+
+	<!-- date -->
+	
+	<div class="meta-widget">
+	<i class="fa fa-clock-o"></i>
+	2019-10-18 
+	</div>
+	
+
+	<!-- categories -->
+    
+
+	<!-- tags -->
+	
+	<div class="meta-widget">
+	<a data-toggle="collapse" data-target="#tags"><i class="fa fa-tags"></i></a>		  
+    <ul id="tags" class="tag_box list-unstyled collapse in">	  
+	    
+  <li><a href="/tags/distributed-system/">distributed-system<span>6</span></a></li> <li><a href="/tags/java/">java<span>1</span></a></li>
+    </ul>
+	</div>
+		
+
+	<!-- toc -->
+	<div class="meta-widget">
+	
+	   <a data-toggle="collapse" data-target="#toc"><i class="fa fa-bars"></i></a>
+	   <div id="toc" class="toc collapse in">
+		   <span class="toc-title">Contents</span>
+			<ol class="toc-article"><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#线程不安全"><span class="toc-article-text">线程不安全</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#互斥同步-悲观锁"><span class="toc-article-text">互斥同步 悲观锁</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#synchronized"><span class="toc-article-text">synchronized</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#ReentrantLock"><span class="toc-article-text">ReentrantLock</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#volatile"><span class="toc-article-text">volatile</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#总结"><span class="toc-article-text">总结</span></a></li></ol></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#非阻塞同步-乐观锁"><span class="toc-article-text">非阻塞同步 乐观锁</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Compare-and-Swap"><span class="toc-article-text">Compare-and-Swap</span></a></li></ol></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#锁优化"><span class="toc-article-text">锁优化</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#自旋锁"><span class="toc-article-text">自旋锁</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#锁消除"><span class="toc-article-text">锁消除</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#锁粗化"><span class="toc-article-text">锁粗化</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#轻量级锁"><span class="toc-article-text">轻量级锁</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#偏向锁"><span class="toc-article-text">偏向锁</span></a></li></ol></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#End"><span class="toc-article-text">End</span></a></li></ol>
+		</div>
+	
+	</div>
+	
+    <hr>
+	
+</div><!-- col-md-3 -->
+
+	</div>
+		
+
+</div><!-- row -->
+
+
+
+	</div>
+  </div>
+  <div class="container-narrow">
+  <footer> <p>
+  &copy; 2019 TalkWithKeyboard
+  
+      with help from <a href="http://hexo.io/" target="_blank">Hexo</a>,<a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind</a>,<a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a> and <a href="http://getbootstrap.com/" target="_blank">BOOTSTRA.386</a>. 
+     <br> Theme by <a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind.386</a>.    
+</p>
+ </footer>
+</div> <!-- container-narrow -->
+  
+
+
+  
+<a id="gotop" href="#">   
+  <span>⬆︎TOP</span>
+</a>
+
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/search.js"></script> 
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+
+
+   <script type="text/javascript">      
+     var search_path = "search.xml";
+	 if (search_path.length == 0) {
+	 	search_path = "search.xml";
+	 }
+	 var path = "/" + search_path;
+     searchFunc(path, 'local-search-input', 'local-search-result');
+   </script>
+
+</body>
+   </html>

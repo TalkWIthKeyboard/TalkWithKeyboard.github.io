@@ -1,0 +1,272 @@
+<!DOCTYPE HTML>
+<html>
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="utf-8">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="cache-control" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  
+  <title>RATE LIMIT FOR MONGOSPARK WRITER | GRYFFONDOR</title>
+  <meta name="author" content="TalkWithKeyboard">
+  
+  <meta name="description" content="背景最近迁移数据库的时候发现了一个问题，相信也是很多 MongoDB 使用者都会遇到的问题。我在使用 MongoSpark 批量的写入数据的时候会造成严重的数据库抖动。主要的原因是现在大多 MongoDB 的配置都是 replica set 模式，这样写操作只会到 Master 节点上，写操作就会成">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="RATE LIMIT FOR MONGOSPARK WRITER">
+  <meta property="og:site_name" content="GRYFFONDOR">
+
+  
+    <meta property="og:image" content>
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="/css/bootstrap.min.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/font-awesome.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/responsive.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/highlight.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/google-fonts.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+
+  <script src="/js/jquery-2.0.3.min.js"></script>
+
+</head>
+</html>
+ <body>  
+  <nav id="main-nav" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+      <button type="button" class="navbar-header navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+	  <a class="navbar-brand" href="/">GRYFFONDOR</a>
+      <div class="collapse navbar-collapse nav-menu">
+		<ul class="nav navbar-nav">
+		  
+		  <li>
+			<a href="/archives" title="All the articles.">
+			  <i class=""></i>Archives
+			</a>
+		  </li>
+		  
+		  <li>
+			<a href="/atom.xml" title="Subscribe me.">
+			  <i class=""></i>RSS
+			</a>
+		  </li>
+		  
+		</ul>
+      </div>
+    </div> <!-- container -->
+</nav>
+<div class="clearfix"></div>
+
+  <div class="container">
+  	<div class="content">
+    	 
+
+
+	
+		<div class="page-header">
+			<h1> RATE LIMIT FOR MONGOSPARK WRITER</h1>
+		</div>
+	
+
+
+
+<div class="row post">
+	<!-- cols -->
+	
+	<div id="top_meta"></div>
+	<div class="col-md-9">
+	
+
+	<!-- content -->
+	<div class="mypage">		
+	  		
+
+	  <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>最近迁移数据库的时候发现了一个问题，相信也是很多 MongoDB 使用者都会遇到的问题。我在使用 MongoSpark 批量的写入数据的时候会造成严重的数据库抖动。主要的原因是现在大多 MongoDB 的配置都是 replica set 模式，这样写操作只会到 Master 节点上，写操作就会成为整个系统的瓶颈，大量的写操作会使 Master 节点的读操作变慢，并且会让 secondary 节点同步速度变慢，从而出现从 secondary 节点上读到老数据的问题。</p>
+<p>而通过对 MongoDB 进行 shard 是一个代价非常昂贵且只能线性提高写吞吐的方法，非常的不经济实惠。所以我们也只能牺牲速率来保证线上服务的稳定。所以解决方案就是在 MongoSpark 中添加上写限速功能。</p>
+<h2 id="Guava-RateLimiter"><a href="#Guava-RateLimiter" class="headerlink" title="Guava.RateLimiter"></a>Guava.RateLimiter</h2><p>选择的限速器是 Guava 提供的令牌桶。算法的原理很简单，会定时的向桶中放置令牌，服务只有获得令牌以后才能进行后续的操作，比如希望对一个服务进行每秒10次的限速，那么每秒中就会向桶中放置10个令牌。而获取的方式有两种，一种是阻塞等待令牌或者取不到令牌直接返回失败。</p>
+<p>那么下面就简单的介绍一下API，主要是分两个动作，创建桶和获取令牌：</p>
+<p><strong>创建令牌桶</strong> </p>
+<ul>
+<li><code>RateLimiter create(double permitsPerSecond)</code>: 根据一个稳定的速率创建令牌桶，也就是每秒插入 permitsPerSecond 个令牌。</li>
+<li><code>RateLimiter create(double permitsPerSecond, long warmupPeriod, TimeUnit unit)</code>: 通过一个预热时间段达到稳定的速率创建令牌桶，在 warmupPeriod 这段时间内每秒令牌数量平稳的爬升至 permitsPerSecond，而后保持稳定。这里的速率也是值每秒插入 permitsPerSecond 个令牌。</li>
+</ul>
+<p><strong>获取令牌</strong></p>
+<ul>
+<li><code>void acquire()</code>: 获取一个令牌，会一直阻塞等待直到拿到。</li>
+<li><code>void acquire(int permits)</code>: 获取 permits 个令牌，会一直阻塞等到直到全部拿到。</li>
+<li><code>boolean tryAcquire()</code>: 获取一个令牌，成功则返回 true，失败直接返回 false。</li>
+<li><code>boolean tryAcquire(long timeout, TimeUnit unit)</code>: 获取一个令牌，成功则返回 true，没有足够的令牌时等到 timeout 时间，如果还没有则返回 false。</li>
+<li><code>boolean tryAcquire(int permits)</code>: 获取 permits 个令牌，成功则返回 true，失败直接返回 false。</li>
+<li><code>boolean tryAcquire(int permits, long timeout, TimeUnit unit)</code>: 获取 permits 个令牌，成功则返回 true，没有足够的令牌时等到 timeout 时间，如果还没有则返回 false。</li>
+</ul>
+<p>通过上面的API可以很灵活的对 RateLimiter 进行使用，但是在阅读源码的过程中，我也发现了 Guava 的实现中有一个不尽如人意的地方。那就是限制能力只能在每秒多少个令牌桶，但是我想实现将少一秒的剩余令牌留给下一秒继续用，也就是几秒甚至更高时间单位的限流是不行的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">Bursty</span> <span class="keyword">extends</span> <span class="title">RateLimiter</span> </span>&#123;</span><br><span class="line">    Bursty(RateLimiter.SleepingTicker ticker) &#123;</span><br><span class="line">        <span class="keyword">super</span>(ticker, <span class="keyword">null</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">doSetRate</span><span class="params">(<span class="keyword">double</span> permitsPerSecond, <span class="keyword">double</span> stableIntervalMicros)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">double</span> oldMaxPermits = <span class="keyword">this</span>.maxPermits;</span><br><span class="line">        <span class="keyword">this</span>.maxPermits = permitsPerSecond;</span><br><span class="line">        <span class="keyword">this</span>.storedPermits = oldMaxPermits == <span class="number">0.0</span>D ? <span class="number">0.0</span>D : <span class="keyword">this</span>.storedPermits * <span class="keyword">this</span>.maxPermits / oldMaxPermits;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">long</span> <span class="title">storedPermitsToWaitTime</span><span class="params">(<span class="keyword">double</span> storedPermits, <span class="keyword">double</span> permitsToTake)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0L</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在上面的代码中，<code>Bursty</code> 就是始终保持平稳速率的令牌桶类，其中 <code>maxPermits</code> 是桶中最多有多少的令牌，<code>storedPermits</code> 是现在桶中的令牌个数。可以看到<code>maxPermits</code> 始终等于 <code>permitsPerSecond</code>，是不能乘上时间系数的，并且在重新设置 <code>maxPermits</code> 后会按照比例缩放之前的桶中令牌数量。</p>
+<h2 id="MongoSpark-save"><a href="#MongoSpark-save" class="headerlink" title="MongoSpark.save"></a>MongoSpark.save</h2><p><code>save()</code> 方法是我们需要修改的主要方法，但是在 MongoSpark 中又存在多种的 save 方法，我们需要分别为这些 save 方法加上限流功能，或者你已经很明确将使用的函数。</p>
+<p>在这之前，我们需要做一些准备工作，既然要限流，那我们肯定需要一个参数来控制流速，而在 MongoSpark 中是有一个配置类供我们设置参数的，我们需要修改一下 <code>WriteConfig</code> 这个类。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Write Configuration for writes to MongoDB</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @param databaseName       the database name</span></span><br><span class="line"><span class="comment"> * @param collectionName     the collection name</span></span><br><span class="line"><span class="comment"> * @param connectionString   the optional connection string used in the creation of this configuration.</span></span><br><span class="line"><span class="comment"> * @param replaceDocument    replaces the whole document, when saving a Dataset that contains an `_id` field.</span></span><br><span class="line"><span class="comment"> *                           If false only updates / sets the fields declared in the Dataset.</span></span><br><span class="line"><span class="comment"> * @param maxBatchSize       the maxBatchSize when performing a bulk update/insert. Defaults to 512.</span></span><br><span class="line"><span class="comment"> * @param localThreshold     the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.</span></span><br><span class="line"><span class="comment"> *                           Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local</span></span><br><span class="line"><span class="comment"> *                           threshold will be chosen.</span></span><br><span class="line"><span class="comment"> * @param writeConcernConfig the write concern configuration</span></span><br><span class="line"><span class="comment"> * @param shardKey           an optional shardKey in extended json form: `"&#123;key: 1, key2: 1&#125;"`. Used when upserting DataSets in sharded clusters.</span></span><br><span class="line"><span class="comment"> * @param forceInsert        if true forces the writes to be inserts, even if a Dataset contains an `_id` field. Default `false`.</span></span><br><span class="line"><span class="comment"> * @param ordered            configures the bulk operation ordered property. Defaults to true.</span></span><br><span class="line"><span class="comment"> * @param secondLatch        the maxBatchSize when performing a bulk update/insert per second per partition.</span></span><br><span class="line"><span class="comment"> * @since 1.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">case</span> <span class="class"><span class="keyword">class</span> <span class="title">WriteConfig</span>(<span class="params"></span></span></span><br><span class="line"><span class="class"><span class="params">    databaseName:       <span class="type">String</span>,</span></span></span><br><span class="line"><span class="class"><span class="params">    collectionName:     <span class="type">String</span>,</span></span></span><br><span class="line"><span class="class"><span class="params">    connectionString:   <span class="type">Option</span>[<span class="type">String</span>]     = <span class="type">None</span>,</span></span></span><br><span class="line"><span class="class"><span class="params">    replaceDocument:    <span class="type">Boolean</span>            = <span class="type">WriteConfig</span>.<span class="type">DefaultReplaceDocument</span>,</span></span></span><br><span class="line"><span class="class"><span class="params">    maxBatchSize:       <span class="type">Int</span>                = <span class="type">WriteConfig</span>.<span class="type">DefaultMaxBatchSize</span>,</span></span></span><br><span class="line"><span class="class"><span class="params">    localThreshold:     <span class="type">Int</span>                = <span class="type">MongoSharedConfig</span>.<span class="type">DefaultLocalThreshold</span>,</span></span></span><br><span class="line"><span class="class"><span class="params">    writeConcernConfig: <span class="type">WriteConcernConfig</span> = <span class="type">WriteConcernConfig</span>.<span class="type">Default</span>,</span></span></span><br><span class="line"><span class="class"><span class="params">    shardKey:           <span class="type">Option</span>[<span class="type">String</span>]     = <span class="type">None</span>,</span></span></span><br><span class="line"><span class="class"><span class="params">    forceInsert:        <span class="type">Boolean</span>            = <span class="type">WriteConfig</span>.<span class="type">DefaultForceInsert</span>,</span></span></span><br><span class="line"><span class="class"><span class="params">    ordered:            <span class="type">Boolean</span>            = <span class="type">WriteConfig</span>.<span class="type">DefautOrdered</span>,</span></span></span><br><span class="line"><span class="class"><span class="params">    secondLatch:        <span class="type">Option</span>[<span class="type">Int</span>]        = <span class="type">None</span></span></span></span><br><span class="line"><span class="class"><span class="params"></span>) <span class="keyword">extends</span> <span class="title">MongoCollectionConfig</span> <span class="keyword">with</span> <span class="title">MongoClassConfig</span> </span>&#123;</span><br><span class="line">  require(maxBatchSize &gt;= <span class="number">1</span>, <span class="string">s"maxBatchSize (<span class="subst">$maxBatchSize</span>) must be greater or equal to 1"</span>)</span><br><span class="line">  require(localThreshold &gt;= <span class="number">0</span>, <span class="string">s"localThreshold (<span class="subst">$localThreshold</span>) must be greater or equal to 0"</span>)</span><br><span class="line">  require(<span class="type">Try</span>(connectionString.map(uri =&gt; <span class="keyword">new</span> <span class="type">ConnectionString</span>(uri))).isSuccess, <span class="string">s"Invalid uri: '<span class="subst">$&#123;connectionString.get&#125;</span>'"</span>)</span><br><span class="line">  require(<span class="type">Try</span>(shardKey.map(json =&gt; <span class="type">BsonDocument</span>.parse(json))).isSuccess, <span class="string">s"Invalid shardKey: '<span class="subst">$&#123;shardKey.get&#125;</span>'"</span>)</span><br><span class="line"></span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Self</span> </span>= <span class="type">WriteConfig</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">withOption</span></span>(key: <span class="type">String</span>, value: <span class="type">String</span>): <span class="type">WriteConfig</span> = <span class="type">WriteConfig</span>(<span class="keyword">this</span>.asOptions + (key -&gt; value))</span><br><span class="line"></span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">withOptions</span></span>(options: collection.<span class="type">Map</span>[<span class="type">String</span>, <span class="type">String</span>]): <span class="type">WriteConfig</span> = <span class="type">WriteConfig</span>(options, <span class="type">Some</span>(<span class="keyword">this</span>))</span><br><span class="line"></span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">asOptions</span></span>: collection.<span class="type">Map</span>[<span class="type">String</span>, <span class="type">String</span>] = &#123;</span><br><span class="line">    <span class="keyword">val</span> options = mutable.<span class="type">Map</span>(<span class="string">"database"</span> -&gt; databaseName, <span class="string">"collection"</span> -&gt; collectionName,</span><br><span class="line">      <span class="type">WriteConfig</span>.replaceDocumentProperty -&gt; replaceDocument.toString,</span><br><span class="line">      <span class="type">WriteConfig</span>.localThresholdProperty -&gt; localThreshold.toString,</span><br><span class="line">      <span class="type">WriteConfig</span>.forceInsertProperty -&gt; forceInsert.toString) ++ writeConcernConfig.asOptions</span><br><span class="line">    connectionString.map(uri =&gt; options += (<span class="type">WriteConfig</span>.mongoURIProperty -&gt; uri))</span><br><span class="line">    shardKey.map(json =&gt; options += (<span class="type">WriteConfig</span>.shardKeyProperty -&gt; json))</span><br><span class="line">    secondLatch.map(number =&gt; options += (<span class="type">WriteConfig</span>.secondLatchProperty -&gt; number.toString))</span><br><span class="line">    options.toMap</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">withOptions</span></span>(options: util.<span class="type">Map</span>[<span class="type">String</span>, <span class="type">String</span>]): <span class="type">WriteConfig</span> = withOptions(options.asScala)</span><br><span class="line"></span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">asJavaOptions</span></span>: util.<span class="type">Map</span>[<span class="type">String</span>, <span class="type">String</span>] = asOptions.asJava</span><br><span class="line"></span><br><span class="line">  <span class="comment">/**</span></span><br><span class="line"><span class="comment">   * The `WriteConcern` that this config represents</span></span><br><span class="line"><span class="comment">   *</span></span><br><span class="line"><span class="comment">   * @return the WriteConcern</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="function"><span class="keyword">def</span> <span class="title">writeConcern</span></span>: <span class="type">WriteConcern</span> = writeConcernConfig.writeConcern</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这是修改以后的 <code>WriteConfig</code> 类代码，我们添加上了一个 <code>secondLatch</code> 的参数作为流速控制参数。在使用的时候可以：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> writeConfig = <span class="keyword">new</span> <span class="type">WriteConfig</span>(conf.mongoDatabase, conf.mongoCollection)</span><br><span class="line">  .withOption(<span class="type">WriteConfig</span>.replaceDocumentProperty, conf.replaceDocument.toString)</span><br><span class="line">  .withOption(<span class="type">WriteConfig</span>.mongoURIProperty, conf.mongoUri)</span><br><span class="line">  .withOption(<span class="type">WriteConfig</span>.secondLatchProperty, conf.secondLatch.toString)</span><br></pre></td></tr></table></figure>
+
+<p>通过 <code>withOption()</code> 的方法设定 <code>secondLatch</code> 参数，然后我们跟踪一下上面的 <code>withOption()</code> 方法的实现，是通过一个 <code>WriteConfig(options: util.Map[String, String])</code> 的构造函数进行了构造。所以也需要修改这个函数的实现：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">apply</span></span>(options: collection.<span class="type">Map</span>[<span class="type">String</span>, <span class="type">String</span>], <span class="keyword">default</span>: <span class="type">Option</span>[<span class="type">WriteConfig</span>]): <span class="type">WriteConfig</span> = &#123;</span><br><span class="line">  <span class="keyword">val</span> cleanedOptions = stripPrefix(options)</span><br><span class="line">  <span class="keyword">val</span> cachedConnectionString = connectionString(cleanedOptions)</span><br><span class="line">  <span class="keyword">val</span> defaultDatabase = <span class="keyword">default</span>.map(conf =&gt; conf.databaseName).orElse(<span class="type">Option</span>(cachedConnectionString.getDatabase))</span><br><span class="line">  <span class="keyword">val</span> defaultCollection = <span class="keyword">default</span>.map(conf =&gt; conf.collectionName).orElse(<span class="type">Option</span>(cachedConnectionString.getCollection))</span><br><span class="line"></span><br><span class="line">  <span class="type">WriteConfig</span>(</span><br><span class="line">    databaseName = databaseName(databaseNameProperty, cleanedOptions, defaultDatabase),</span><br><span class="line">    collectionName = collectionName(collectionNameProperty, cleanedOptions, defaultCollection),</span><br><span class="line">    connectionString = cleanedOptions.get(mongoURIProperty).orElse(<span class="keyword">default</span>.flatMap(conf =&gt; conf.connectionString)),</span><br><span class="line">    replaceDocument = getBoolean(cleanedOptions.get(replaceDocumentProperty), <span class="keyword">default</span>.map(conf =&gt; conf.replaceDocument),</span><br><span class="line">      defaultValue = <span class="type">DefaultReplaceDocument</span>),</span><br><span class="line">    maxBatchSize = getInt(cleanedOptions.get(maxBatchSizeProperty), <span class="keyword">default</span>.map(conf =&gt; conf.maxBatchSize),</span><br><span class="line">      <span class="type">DefaultMaxBatchSize</span>),</span><br><span class="line">    localThreshold = getInt(cleanedOptions.get(localThresholdProperty), <span class="keyword">default</span>.map(conf =&gt; conf.localThreshold),</span><br><span class="line">      <span class="type">MongoSharedConfig</span>.<span class="type">DefaultLocalThreshold</span>),</span><br><span class="line">    writeConcernConfig = <span class="type">WriteConcernConfig</span>(cleanedOptions, <span class="keyword">default</span>.map(writeConf =&gt; writeConf.writeConcernConfig)),</span><br><span class="line">    shardKey = cleanedOptions.get(shardKeyProperty).orElse(<span class="keyword">default</span>.flatMap(conf =&gt; conf.shardKey).orElse(<span class="type">None</span>)),</span><br><span class="line">    forceInsert = getBoolean(cleanedOptions.get(forceInsertProperty), <span class="keyword">default</span>.map(conf =&gt; conf.forceInsert),</span><br><span class="line">      defaultValue = <span class="type">DefaultForceInsert</span>),</span><br><span class="line">    ordered = getBoolean(cleanedOptions.get(orderedProperty), <span class="keyword">default</span>.map(conf =&gt; conf.ordered), <span class="type">DefautOrdered</span>),</span><br><span class="line">	  <span class="comment">// 流速控制参数</span></span><br><span class="line">    secondLatch = cleanedOptions</span><br><span class="line">      .get(secondLatchProperty).orElse(<span class="keyword">default</span>.flatMap(conf =&gt; <span class="type">Try</span>(conf.secondLatch.toString).toOption).orElse(<span class="type">None</span>))</span><br><span class="line">      .flatMap(s =&gt; <span class="type">Try</span>(s.toInt).toOption)</span><br><span class="line">  )</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到这个构造函数调用的是一个要传递所有参数的构造函数进行构造的，所以我们还需要实现这样一个传递所有参数的构造函数，然后加上：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">secondLatch = cleanedOptions</span><br><span class="line">      .get(secondLatchProperty).orElse(<span class="keyword">default</span>.flatMap(conf =&gt; <span class="type">Try</span>(conf.secondLatch.toString).toOption).orElse(<span class="type">None</span>))</span><br><span class="line">      .flatMap(s =&gt; <span class="type">Try</span>(s.toInt).toOption)</span><br></pre></td></tr></table></figure>
+
+<p>由于 <code>options</code> 的 value 都是字符串，所以这边需要转一下 <code>Int</code>，传递所有参数的构造函数如下：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">  * Creates a WriteConfig</span></span><br><span class="line"><span class="comment">  *</span></span><br><span class="line"><span class="comment">  * @param databaseName      the database name</span></span><br><span class="line"><span class="comment">  * @param collectionName    the collection name</span></span><br><span class="line"><span class="comment">  * @param connectionString  the optional connection string used in the creation of this configuration</span></span><br><span class="line"><span class="comment">  * @param replaceDocument   replaces the whole document, when saving a Dataset that contains an `_id` field.</span></span><br><span class="line"><span class="comment">  *                          If false only updates / sets the fields declared in the Dataset.</span></span><br><span class="line"><span class="comment">  * @param maxBatchSize      the maxBatchSize when performing a bulk update/insert. Defaults to 512.</span></span><br><span class="line"><span class="comment">  * @param localThreshold    the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.</span></span><br><span class="line"><span class="comment">  *                          Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local</span></span><br><span class="line"><span class="comment">  *                          threshold will be chosen.</span></span><br><span class="line"><span class="comment">  * @param writeConcern      the WriteConcern to use</span></span><br><span class="line"><span class="comment">  * @param shardKey          an optional shardKey in extended form: `"&#123;key: 1, key2: 1&#125;"`. Used when upserting DataSets in sharded clusters.</span></span><br><span class="line"><span class="comment">  * @param forceInsert       if true forces the writes to be inserts, even if a Dataset contains an `_id` field. Default `false`.</span></span><br><span class="line"><span class="comment">  * @param ordered           configures if the bulk operation is ordered property.</span></span><br><span class="line"><span class="comment">  * @param secondLatch       the maxBatchSize when performing a bulk update/insert per second per partition.</span></span><br><span class="line"><span class="comment">  * @return the write config</span></span><br><span class="line"><span class="comment">  * @since jike-1.0.0</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">apply</span></span>(databaseName: <span class="type">String</span>, collectionName: <span class="type">String</span>, connectionString: <span class="type">Option</span>[<span class="type">String</span>], replaceDocument: <span class="type">Boolean</span>, maxBatchSize: <span class="type">Int</span>,</span><br><span class="line">          localThreshold: <span class="type">Int</span>, writeConcern: <span class="type">WriteConcern</span>, shardKey: <span class="type">Option</span>[<span class="type">String</span>], forceInsert: <span class="type">Boolean</span>, ordered: <span class="type">Boolean</span>, secondLatch: <span class="type">Option</span>[<span class="type">Int</span>]): <span class="type">WriteConfig</span> = &#123;</span><br><span class="line">  apply(databaseName, collectionName, connectionString, replaceDocument, maxBatchSize, localThreshold, <span class="type">WriteConcernConfig</span>(writeConcern),</span><br><span class="line">    shardKey, forceInsert, ordered, secondLatch)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用 <code>case class</code> 提供的默认构造函数进行构造，至此我们就能愉快的对包含 <code>secondLatch</code> 字段的 <code>WriteConfig</code> 进行构造了。</p>
+<h3 id="Save-Method"><a href="#Save-Method" class="headerlink" title="Save Method"></a>Save Method</h3><p>然后我们就需要分别对多个 <code>save()</code> 添加限速器，原理都大同小异，就是在 <code>foreachPartition</code> 的函数中构建令牌桶，然后在 <code>foreach</code> 的写Mongodb 函数之前进行阻塞的令牌获取，这里就展示常用的 Datasets 和 RDD 类型 save 方法的修改：</p>
+<p><strong>save[D] (dataset: Dataset[D]): Unit</strong></p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Save data to MongoDB</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * '''Note:''' If the dataFrame contains an `_id` field the data will upserted and replace any existing documents in the collection.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @param dataset the dataset to save to MongoDB</span></span><br><span class="line"><span class="comment"> * @param writeConfig the writeConfig</span></span><br><span class="line"><span class="comment"> * @tparam D</span></span><br><span class="line"><span class="comment"> * @since 1.1.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">save</span></span>[<span class="type">D</span>](dataset: <span class="type">Dataset</span>[<span class="type">D</span>], writeConfig: <span class="type">WriteConfig</span>): <span class="type">Unit</span> = &#123;</span><br><span class="line">  <span class="keyword">val</span> mongoConnector = <span class="type">MongoConnector</span>(writeConfig.asOptions)</span><br><span class="line">  <span class="keyword">val</span> dataSet = dataset.toDF()</span><br><span class="line">  <span class="keyword">val</span> mapper = rowToDocumentMapper(dataSet.schema)</span><br><span class="line">  <span class="keyword">val</span> documentRdd: <span class="type">RDD</span>[<span class="type">BsonDocument</span>] = dataSet.rdd.map(row =&gt; mapper(row))</span><br><span class="line">  <span class="keyword">val</span> fieldNames = dataset.schema.fieldNames.toList</span><br><span class="line">  <span class="keyword">val</span> queryKeyList = <span class="type">BsonDocument</span>.parse(writeConfig.shardKey.getOrElse(<span class="string">"&#123;_id: 1&#125;"</span>)).keySet().asScala.toList</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (writeConfig.forceInsert || !queryKeyList.forall(fieldNames.contains(_))) &#123;</span><br><span class="line">    <span class="type">MongoSpark</span>.save(documentRdd, writeConfig)</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    documentRdd.foreachPartition(iter =&gt; <span class="keyword">if</span> (iter.nonEmpty) &#123;</span><br><span class="line">		<span class="comment">// **INIT RateLimiter</span></span><br><span class="line">      <span class="keyword">var</span> rateLimiter: <span class="type">Option</span>[<span class="type">RateLimiter</span>] = <span class="type">None</span></span><br><span class="line">      <span class="keyword">if</span> (writeConfig.secondLatch.isDefined) &#123;</span><br><span class="line">        <span class="comment">// If secondLatch &lt; maxBatchSize, it will destroy rate limit rule.</span></span><br><span class="line">        <span class="keyword">val</span> permitSize = <span class="keyword">if</span> (writeConfig.secondLatch.get &gt;= writeConfig.maxBatchSize) (writeConfig.secondLatch.get / writeConfig.maxBatchSize).floor <span class="keyword">else</span> <span class="number">1</span></span><br><span class="line">        rateLimiter = <span class="type">Option</span>.apply(<span class="type">RateLimiter</span>.create(permitSize))</span><br><span class="line">      &#125;</span><br><span class="line">      mongoConnector.withCollectionDo(writeConfig, &#123; collection: <span class="type">MongoCollection</span>[<span class="type">BsonDocument</span>] =&gt;</span><br><span class="line">        iter.grouped(writeConfig.maxBatchSize).foreach(batch =&gt; &#123;</span><br><span class="line">			<span class="comment">// **Acquire</span></span><br><span class="line">          <span class="keyword">if</span> (rateLimiter.isDefined) &#123;</span><br><span class="line">            rateLimiter.get.acquire(<span class="number">1</span>)</span><br><span class="line">          &#125;</span><br><span class="line">          <span class="keyword">val</span> requests = batch.map(doc =&gt;</span><br><span class="line">            <span class="keyword">if</span> (queryKeyList.forall(doc.containsKey(_))) &#123;</span><br><span class="line">              <span class="keyword">val</span> queryDocument = <span class="keyword">new</span> <span class="type">BsonDocument</span>()</span><br><span class="line">              queryKeyList.foreach(key =&gt; queryDocument.append(key, doc.get(key)))</span><br><span class="line">              <span class="keyword">if</span> (writeConfig.replaceDocument) &#123;</span><br><span class="line">                <span class="keyword">new</span> <span class="type">ReplaceOneModel</span>[<span class="type">BsonDocument</span>](queryDocument, doc, <span class="keyword">new</span> <span class="type">ReplaceOptions</span>().upsert(<span class="literal">true</span>))</span><br><span class="line">              &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                queryDocument.keySet().asScala.foreach(doc.remove(_))</span><br><span class="line">                <span class="keyword">new</span> <span class="type">UpdateOneModel</span>[<span class="type">BsonDocument</span>](queryDocument, <span class="keyword">new</span> <span class="type">BsonDocument</span>(<span class="string">"$set"</span>, doc), <span class="keyword">new</span> <span class="type">UpdateOptions</span>().upsert(<span class="literal">true</span>))</span><br><span class="line">              &#125;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">              <span class="keyword">new</span> <span class="type">InsertOneModel</span>[<span class="type">BsonDocument</span>](doc)</span><br><span class="line">            &#125;)</span><br><span class="line">          collection.bulkWrite(requests.toList.asJava, <span class="keyword">new</span> <span class="type">BulkWriteOptions</span>().ordered(writeConfig.ordered))</span><br><span class="line">        &#125;)</span><br><span class="line">      &#125;)</span><br><span class="line">    &#125;)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>save[D: ClassTag] (rdd: RDD[D]): Unit</strong></p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Save data to MongoDB</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @param rdd the RDD data to save to MongoDB</span></span><br><span class="line"><span class="comment"> * @param writeConfig the writeConfig</span></span><br><span class="line"><span class="comment"> * @tparam D the type of the data in the RDD</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">save</span></span>[<span class="type">D</span>: <span class="type">ClassTag</span>](rdd: <span class="type">RDD</span>[<span class="type">D</span>], writeConfig: <span class="type">WriteConfig</span>): <span class="type">Unit</span> = &#123;</span><br><span class="line">  <span class="keyword">val</span> mongoConnector = <span class="type">MongoConnector</span>(writeConfig.asOptions)</span><br><span class="line">  rdd.foreachPartition(iter =&gt; <span class="keyword">if</span> (iter.nonEmpty) &#123;</span><br><span class="line">    <span class="comment">// **INIT RateLimiter</span></span><br><span class="line">    <span class="keyword">var</span> rateLimiter: <span class="type">Option</span>[<span class="type">RateLimiter</span>] = <span class="type">None</span></span><br><span class="line">    <span class="keyword">if</span> (writeConfig.secondLatch.isDefined) &#123;</span><br><span class="line">      <span class="comment">// If secondLatch &lt; maxBatchSize, it will destroy rate limit rule.</span></span><br><span class="line">      <span class="keyword">val</span> permitSize = <span class="keyword">if</span> (writeConfig.secondLatch.get &gt;= writeConfig.maxBatchSize) (writeConfig.secondLatch.get / writeConfig.maxBatchSize).floor <span class="keyword">else</span> <span class="number">1</span></span><br><span class="line">      rateLimiter = <span class="type">Option</span>.apply(<span class="type">RateLimiter</span>.create(permitSize))</span><br><span class="line">    &#125;</span><br><span class="line">    mongoConnector.withCollectionDo(writeConfig, &#123; collection: <span class="type">MongoCollection</span>[<span class="type">D</span>] =&gt;</span><br><span class="line">      iter.grouped(writeConfig.maxBatchSize).foreach(batch =&gt; &#123;</span><br><span class="line">		  <span class="comment">// **Acquire</span></span><br><span class="line">        <span class="keyword">if</span> (rateLimiter.isDefined) &#123;</span><br><span class="line">          rateLimiter.get.acquire(<span class="number">1</span>)</span><br><span class="line">        &#125;</span><br><span class="line">        collection.insertMany(</span><br><span class="line">          batch.toList.asJava,</span><br><span class="line">          <span class="keyword">new</span> <span class="type">InsertManyOptions</span>().ordered(writeConfig.ordered)</span><br><span class="line">        )</span><br><span class="line">      &#125;)</span><br><span class="line">    &#125;)</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>需要注意的是不要在 Driver 上去初始化 <code>RateLimiter</code>，还要注意与 WriteConfig 中已存在的 <code>maxBatchSize</code> 参数的关系。</p>
+<p>到这里就能愉快的进行限速了。</p>
+	  
+	</div>
+
+	<div>
+  	<center>
+	<div class="pagination">
+
+    
+    
+    <a href="/2019/09/28/a6/" type="button" class="btn btn-default"><i
+                class="fa fa-arrow-circle-o-left"></i> Prev</a>
+    
+
+    <a href="/" type="button" class="btn btn-default"><i class="fa fa-home"></i>Home</a>
+    
+    <a href="/2019/04/06/a13/" type="button" class="btn btn-default ">Next<i
+                class="fa fa-arrow-circle-o-right"></i></a>
+    
+
+    
+</div>
+
+    </center>
+	</div>
+	
+	<!-- comment -->
+	
+<section id="comment">
+    <h2 class="title">Comments</h2>
+
+    
+</section>
+
+
+	</div> <!-- col-md-9/col-md-12 -->
+		
+	
+	<div id="side_meta">
+		<div class="col-md-3" id="post_meta"> 
+
+	<!-- date -->
+	
+	<div class="meta-widget">
+	<i class="fa fa-clock-o"></i>
+	2019-05-11 
+	</div>
+	
+
+	<!-- categories -->
+    
+
+	<!-- tags -->
+	
+	<div class="meta-widget">
+	<a data-toggle="collapse" data-target="#tags"><i class="fa fa-tags"></i></a>		  
+    <ul id="tags" class="tag_box list-unstyled collapse in">	  
+	    
+  <li><a href="/tags/mongodb/">mongodb<span>2</span></a></li> <li><a href="/tags/spark/">spark<span>1</span></a></li>
+    </ul>
+	</div>
+		
+
+	<!-- toc -->
+	<div class="meta-widget">
+	
+	   <a data-toggle="collapse" data-target="#toc"><i class="fa fa-bars"></i></a>
+	   <div id="toc" class="toc collapse in">
+		   <span class="toc-title">Contents</span>
+			<ol class="toc-article"><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#背景"><span class="toc-article-text">背景</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#Guava-RateLimiter"><span class="toc-article-text">Guava.RateLimiter</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#MongoSpark-save"><span class="toc-article-text">MongoSpark.save</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Save-Method"><span class="toc-article-text">Save Method</span></a></li></ol></li></ol>
+		</div>
+	
+	</div>
+	
+    <hr>
+	
+</div><!-- col-md-3 -->
+
+	</div>
+		
+
+</div><!-- row -->
+
+
+
+	</div>
+  </div>
+  <div class="container-narrow">
+  <footer> <p>
+  &copy; 2019 TalkWithKeyboard
+  
+      with help from <a href="http://hexo.io/" target="_blank">Hexo</a>,<a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind</a>,<a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a> and <a href="http://getbootstrap.com/" target="_blank">BOOTSTRA.386</a>. 
+     <br> Theme by <a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind.386</a>.    
+</p>
+ </footer>
+</div> <!-- container-narrow -->
+  
+
+
+  
+<a id="gotop" href="#">   
+  <span>⬆︎TOP</span>
+</a>
+
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/search.js"></script> 
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+
+
+   <script type="text/javascript">      
+     var search_path = "search.xml";
+	 if (search_path.length == 0) {
+	 	search_path = "search.xml";
+	 }
+	 var path = "/" + search_path;
+     searchFunc(path, 'local-search-input', 'local-search-result');
+   </script>
+
+</body>
+   </html>
