@@ -1,0 +1,297 @@
+<!DOCTYPE HTML>
+<html>
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="utf-8">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="cache-control" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  
+  <title>KV分布式事务 | GRYFFONDOR</title>
+  <meta name="author" content="TalkWithKeyboard">
+  
+  <meta name="description" content="PercolatorPercolator主要使用在Bigtable系统中提供分布式事务能力，其本身的实现是利用Bigtable的单行事务能力以及在行内设置lock列来进行悲观事务。数据结构：
+1&amp;lt;key, version&amp;gt;: &amp;lt;data&amp;gt;, &amp;lt;lock&amp;gt;, &amp;lt">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="KV分布式事务">
+  <meta property="og:site_name" content="GRYFFONDOR">
+
+  
+    <meta property="og:image" content>
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="/css/bootstrap.min.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/font-awesome.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/responsive.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/highlight.css" media="screen" type="text/css">
+  <link rel="stylesheet" href="/css/google-fonts.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+
+  <script src="/js/jquery-2.0.3.min.js"></script>
+
+</head>
+</html>
+ <body>  
+  <nav id="main-nav" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+      <button type="button" class="navbar-header navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+	  <a class="navbar-brand" href="/">GRYFFONDOR</a>
+      <div class="collapse navbar-collapse nav-menu">
+		<ul class="nav navbar-nav">
+		  
+		  <li>
+			<a href="/archives" title="All the articles.">
+			  <i class=""></i>Archives
+			</a>
+		  </li>
+		  
+		  <li>
+			<a href="/atom.xml" title="Subscribe me.">
+			  <i class=""></i>RSS
+			</a>
+		  </li>
+		  
+		</ul>
+      </div>
+    </div> <!-- container -->
+</nav>
+<div class="clearfix"></div>
+
+  <div class="container">
+  	<div class="content">
+    	 
+
+
+	
+		<div class="page-header">
+			<h1> KV分布式事务</h1>
+		</div>
+	
+
+
+
+<div class="row post">
+	<!-- cols -->
+	
+	<div id="top_meta"></div>
+	<div class="col-md-9">
+	
+
+	<!-- content -->
+	<div class="mypage">		
+	  		
+
+	  <h2 id="Percolator"><a href="#Percolator" class="headerlink" title="Percolator"></a>Percolator</h2><p><code>Percolator</code>主要使用在Bigtable系统中提供分布式事务能力，其本身的实现是利用Bigtable的单行事务能力以及在行内设置lock列来进行悲观事务。数据结构：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&lt;key, version&gt;: &lt;data&gt;, &lt;lock&gt;, &lt;write&gt;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Transaction-Write"><a href="#Transaction-Write" class="headerlink" title="Transaction Write"></a>Transaction Write</h3><ul>
+<li>开启事务：向集中的<code>Timestamp server oracle(TSO)</code>节点申请一个事务开始时间戳<code>t(s)</code>，并且以此时间戳做为事务id</li>
+<li>2PC第一阶段：<code>Percolator</code>在一些Write set当中选择一行做为Primary，其他的行做为Secondaries。先对Primary做<code>prewrite</code>操作，如果成功则对其他的Secondaries做<code>prewrite</code>操作。<ul>
+<li>Prewrite：这个操作当中有多个原子操作，被封装在一个事务当中，由Bigtable的单行事务性来保证。<ul>
+<li>首先检查<code>write</code>是否有时间戳大于<code>t(s)</code>的版本，如果有则说明这行数据已经被新的事务提交过了，直接返回事务冲突</li>
+<li>然后检查<code>lock</code>是否有任意版本的数据存在，如果有则说明这行资源还被别的事务持有，返回事务冲突</li>
+<li>如果前面的操作都成功了，那么在<code>data</code>写入版本为<code>t(s)</code>的value数据</li>
+<li>并且在<code>lock</code>中写入版本为<code>t(s)</code>值为primary位置的数据<br>在<code>prewrite</code>的第二部检查当中，发生冲突是有三种情况：</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>获得锁的版本小于<code>t(s)</code>，该资源正在被一个事务持有</li>
+<li>获得锁的版本小于<code>t(s)</code>，有一个老事务因为某种原因没有成功的还掉锁</li>
+<li>获得锁的版本大于<code>t(s)</code>，该资源正在被一个事务持有<br>上述情况当中的1，3都是典型的写-写冲突，client就进行正常的backoff重试即可。而第2种情况是客户端在2PC的第二阶段发生了异常导致，这时需要rollback之前的事务来释放掉这个异常的锁。并且这里是很难区分1，2的，毕竟锁的版本都小于<code>t(s)</code>，所以需要一个附件条件锁的ttl时间，如果锁处于ttl时间内则说明是第1种情况，在ttl时间外则是第2种情况。</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>2PC第二阶段：向集中的<code>TSO</code>节点申请一个事务提交时间戳<code>t(c)</code>，之后检查Primary的<code>lock</code>是否还存在<code>t(s)</code>版本的数据，如果不存在则说明该事务锁已经超过ttl时长，被其他的事务中断了。如果存在的话，则向<code>write</code>写入版本为<code>t(c)</code>值为<code>t(s)</code>的数据并且清掉锁，这时整个事务已经成功。最后异步的完成Secondaries写<code>write</code>并且释放锁的操作。这个阶段当中检查、写入、清锁的过程被包装在一个事务当中。</li>
+</ul>
+<h3 id="Transaction-Read"><a href="#Transaction-Read" class="headerlink" title="Transaction Read"></a>Transaction Read</h3><p>读事务就要简单很多，<code>Percolator</code>向集中的<code>TSO</code>节点申请一个事务开始的时间戳<code>t(s)</code>，然后检查所有的Read set中的锁，如果存在时间戳小于<code>t(s)</code>的锁：</p>
+<ul>
+<li>锁还处于TTL时间内，说明该资源正在被另外一个事务持有，Client进行backoff操作</li>
+<li>锁已经超时，这时可以通过锁中记录的primary位置找到primary行的<code>write</code>列，检查是否存在锁版本的数据。如果存在则说明该事务已经成功，只是没有正常的还锁，这时将锁对应的事务进行提交，如果不存在则说明该事务2PC第二阶段出现问题，将该事务进行rollback</li>
+</ul>
+<p>下面是论文源码👇：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Transaction</span> &#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">Write</span>&#123;</span> Row row; Column: col; <span class="built_in">string</span> value;&#125;;</span><br><span class="line">    <span class="built_in">vector</span>&lt;Write&gt; writes_;</span><br><span class="line">    <span class="keyword">int</span> start_ts_;</span><br><span class="line"></span><br><span class="line">    Transaction():start_ts_(orcle.GetTimestamp()) &#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">Set</span><span class="params">(Write w)</span> </span>&#123;writes_.push_back(w);&#125;</span><br><span class="line">    <span class="function"><span class="keyword">bool</span> <span class="title">Get</span><span class="params">(Row row, Column c, <span class="built_in">string</span>* value)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">while</span>(<span class="literal">true</span>) &#123;</span><br><span class="line">            bigtable::Txn = bigtable::StartRowTransaction(row);</span><br><span class="line">            <span class="comment">// Check for locks that signal concurrent writes.</span></span><br><span class="line">            <span class="keyword">if</span> (T.Read(row, c+<span class="string">"locks"</span>, [<span class="number">0</span>, start_ts_])) &#123;</span><br><span class="line">                <span class="comment">// There is a pending lock; try to clean it and wait</span></span><br><span class="line">                BackoffAndMaybeCleanupLock(row, c);</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Find the latest write below our start_timestamp.</span></span><br><span class="line">        latest_write = T.Read(row, c+<span class="string">"write"</span>, [<span class="number">0</span>, start_ts_]);</span><br><span class="line">        <span class="keyword">if</span>(!latest_write.found()) <span class="keyword">return</span> <span class="literal">false</span>; <span class="comment">// no data</span></span><br><span class="line">        <span class="keyword">int</span> data_ts = latest_write.start_timestamp();</span><br><span class="line">        *value = T.Read(row, c+<span class="string">"data"</span>, [data_ts, data_ts]);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// prewrite tries to lock cell w, returning false in case of conflict.</span></span><br><span class="line">    <span class="function"><span class="keyword">bool</span> <span class="title">Prewrite</span><span class="params">(Write w, Write primary)</span> </span>&#123;</span><br><span class="line">        Column c = w.col;</span><br><span class="line">        bigtable::Txn T = bigtable::StartRowTransaction(w.row);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// abort on writes after our start stimestamp ...</span></span><br><span class="line">        <span class="keyword">if</span> (T.Read(w.row, c+<span class="string">"write"</span>, [start_ts_, max])) <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        <span class="comment">// ... or locks at any timestamp.</span></span><br><span class="line">        <span class="keyword">if</span> (T.Read(w.row, c+<span class="string">"lock"</span>, [<span class="number">0</span>, max])) <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">        T.Write(w.row, c+<span class="string">"data"</span>, start_ts_, w.value);</span><br><span class="line">        T.Write(w.row, c+<span class="string">"lock"</span>, start_ts_, </span><br><span class="line">            &#123;primary.row, primary.col&#125;);  <span class="comment">// The primary's location.</span></span><br><span class="line">        <span class="keyword">return</span> T.Commit();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">bool</span> <span class="title">Commit</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        Write primary = write_[<span class="number">0</span>];</span><br><span class="line">        <span class="built_in">vector</span>&lt;Write&gt; secondaries(write_.begin() + <span class="number">1</span>, write_.end());</span><br><span class="line">        <span class="keyword">if</span> (!Prewrite(primary, primary)) <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        <span class="keyword">for</span> (Write w : secondaries)</span><br><span class="line">            <span class="keyword">if</span> (!Prewrite(w, primary)) <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">int</span> commit_ts = orcle.GetTimestamp();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Commit primary first.</span></span><br><span class="line">        Write p = primary;</span><br><span class="line">        bigtable::Txn T = bigtable::StartRowTransaction(p.row);</span><br><span class="line">        <span class="keyword">if</span> (!T.Read(p.row, p.col+<span class="string">"lock"</span>, [start_ts_, start_ts_]))</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>; <span class="comment">// aborted while working</span></span><br><span class="line">        T.Write(p.row, p.col+<span class="string">"write"</span>, commit_ts,</span><br><span class="line">            start_ts_); <span class="comment">// Pointer to data written at start_ts_</span></span><br><span class="line">        T.Erase(p.row, p.col+<span class="string">"lock"</span>, commit_ts);</span><br><span class="line">        <span class="keyword">if</span>(!T.Commit()) <span class="keyword">return</span> <span class="literal">false</span>;  <span class="comment">// commit point</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// Second phase: write our write records for secondary cells.</span></span><br><span class="line">        <span class="keyword">for</span> (Write w:secondaries) &#123;</span><br><span class="line">            bigtable::write(w.row, w.col+<span class="string">"write"</span>, commit_ts, start_ts_);</span><br><span class="line">            bigtable::Erase(w.row, w.col+<span class="string">"lock"</span>, commit_ts);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;; <span class="comment">// class Transaction</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="Example"><a href="#Example" class="headerlink" title="Example"></a>Example</h3><ol>
+<li>初始化Bob和Joe的账户，Bob有10元，Joe有2元<br><img src="/images/a15-1.png" alt="a15-1"></li>
+<li>有一个事务出现，这个事务要将Bob的7元给Joe，这时获得了一个新的时间戳7，选择Bob做为primary，锁住该行写入Bob减掉7元以后的数据<br><img src="/images/a15-2.png" alt="a15-2"></li>
+<li>将Joe选为Secondary，并指向Primary的Bob，锁住该行写入Joe加7元以后的数据<br><img src="/images/a15-3.png" alt="a15-3"></li>
+<li>这时候2PC第一阶段完成，开始第二阶段，申请一个提交时间戳8，将时间戳7写入Bob的<code>write</code>的8版本中<br><img src="/images/a15-4.png" alt="a15-4"></li>
+<li>将时间戳7写入Joe的<code>write</code>的8版本中<br><img src="/images/a15-5.png" alt="a15-5"></li>
+</ol>
+<h2 id="Percolator-in-TiDB"><a href="#Percolator-in-TiDB" class="headerlink" title="Percolator in TiDB"></a>Percolator in TiDB</h2><p>有了上面对<code>Percolator</code>的解释，我们现在很容易理解在TiDB中是如果使用<code>Percolator</code>来实现事务逻辑。首先我们来看其乐观事务的实现：<br><img src="/images/a15-6.jpg" alt="a15-6"><br>我们从图上可以看出，<code>Percolator</code>是被使用在TiDB和其下面的TiKV进行事务通信的协议。最开始的时候我很奇怪，<code>Percolator</code>的实现不是一个悲观事务模型吗？但是为什么TiDB里称其为乐观事务，是因为暴露给Client的不是底层的KV而是DB这一层，而加锁的过程被放在了Commit阶段，所以对于Client来说，这就是一个乐观事务模型。当事务开始以后，首先执行DML操作，得到Write set，然后将Write set放到<code>Percolator</code>中执行2PC，在第一阶段上锁。</p>
+<p>下面再看看他们在这基础上修改的悲观事务模型，很巧妙：<br><img src="/images/a15-7.jpg" alt="a15-7"><br>将上锁的过程提前到开始执行<code>Percolator</code>事务之前，先对所有的Write set上一个和<code>Percolator</code>同样的锁，不过锁里面没有记录Primary的位置，而是空的，仅做占位符使用。等开始执行<code>Percolator</code>事务以后，锁会被写入正确的值。这样做的好处是，在数据真正开始发生变更之前就锁住了所有资源。不会发生回滚行为，在资源竞争密集的场景下效率大大优于乐观事务。写请求看到这个空锁直接等锁，读请求可以直接从TiKV中读取数据即可。</p>
+<h2 id="Omid"><a href="#Omid" class="headerlink" title="Omid"></a>Omid</h2><p><code>Omid</code>主要使用在Phoenix系统中提供分布式事务能力，其本身的实现是利用Hbase的单行事务能力以及在行内设置version, commit列来进行乐观事务，数据结构：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Data table   &lt;key, version&gt;: &lt;value&gt; &lt;commit&gt;</span><br><span class="line">Commit table      &lt;version&gt;: &lt;commit&gt;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Transaction-Write-1"><a href="#Transaction-Write-1" class="headerlink" title="Transaction Write"></a>Transaction Write</h3><ul>
+<li>开启事务：向集中的<code>Timestamp server oracle(TSO)</code>节点申请一个事务开始时间戳<code>t(s)</code>，并且以此时间戳做为事务id</li>
+<li>2PC第一阶段：Client将Write set中的每行的修改数据写入Data table版本为<code>t(s)</code>，对应的key的<code>value</code>当中，需要注意的是这时候的<code>commit</code>均为null</li>
+<li>2PC第二阶段：Client带上Write set和<code>t(s)</code>向<code>TSO</code>提交commit请求，<code>TSO</code>会进行冲突检查，如果检查成功则返回<code>t(c)</code>给Client，否则的话整个事务被中断。Client拿到<code>t(c)</code>以后向Commit Table发起<code>CAS(t(s), commit, null, t(c))</code>操作，如果返回<code>ABORT</code>则将事务终止，并且异步的清除Data table中之前写入的数据。如果成功，则进行Post-commit流程，将写入Commit table中的<code>t(c)</code>异步复制到Data table的版本为<code>t(s)</code>的<code>commit</code>当中。完成所有的异步复制以后进行垃圾回收，将Commit table当中的数据清除掉，完成整个事务。<ul>
+<li>TSO如何进行冲突检查：原理非常的简单，就是检查Write set当中的每一行是否有<code>lastCommit &gt; t(s)</code>的数据，lastCommit是这一行最新的一个<code>t(c)</code>。如果有则说明在该事务执行过程当中已经有其他的事务完成，出现了写-写冲突，则中断该事务。但是要执行这个操作需要在TSO当中保存所有行的lastCommit数据才行，这个存储开销太大了，所以需要想办法优化。优化的手段也比较简单，就是维护一个LRU队列即可，只保存一定数量的列的lastCommit即可。那么不在队列当中的列的lastCommit一定小于等于队列中最小的一个lastCommit时间，这样可以检查<code>lastCommit&lt;=Smallest(lastCommit)&lt;=t(s)</code>的偏序关系，以检查冲突情况。但是由于队列中没有保存所有的数据，还是会有漏网之鱼，比如说现在队列里的<code>Smallest(lastCommit) &gt; t(s)</code>，并且要检查的列没有在队列当中，那么偏序关系就无从可知，这时候就直接将事务中断即可，也不会影响正确性。</li>
+<li>CAS函数：这是一个在实现乐观锁当中经常会使用到的函数，<code>CAS(a,b,c,d)</code>是指比较a行b列，如果它现在的值等于c，则将其修改为d。并且这个函数需要保证原子性。在HBase当中可以使用行级事务来实现CAS函数，并保证其原子性。</li>
+</ul>
+</li>
+</ul>
+<h3 id="Transaction-Read-1"><a href="#Transaction-Read-1" class="headerlink" title="Transaction Read"></a>Transaction Read</h3><ul>
+<li>向集中的<code>Timestamp server oracle(TSO)</code>节点申请一个事务开始时间戳<code>t(s)</code>，并且以此时间戳做为事务id</li>
+<li>扫描所有的Read set，每一行从大版本到小版本扫描，找到第一个提交版本小于<code>t(s)</code>的value和对应的版本<code>t(s2)</code>。如果发现其<code>commit==null</code>，这时候有两种情况：<ul>
+<li>这一次事务已经成功，只是正在进行Post-commit流程，从Commit table当中将<code>t(c)</code>复制过来</li>
+<li>这一次事务没有成功<br>为了区分这两种情况，<code>Omid</code>会去Commit table当中检查版本<code>t(s2)</code>对应的<code>commit</code>是否有值，如果有值则说明是情况1，如果没有则说明是情况2。情况1的话很好办，继续向下遍历更小的版本。情况2的话就比较麻烦：</li>
+<li>Client调用<code>CAS(t(s2), commit, null, ABORT)</code>来将其对应的事务设置为ABORT，这样在其重试的Commit环节会发现ABORT标志而使其事务进行中断操作</li>
+<li>如果设置成功，还需要检查一下是否是因为读事务太慢而导致的错误中断，去Data table读<code>t(s2)</code>版本的commit，如果发现存在值<code>t(c2)</code>，并且<code>t(c2)&lt;t(s)</code>，则返回其value和版本。否则继续向下遍历更小的版本。</li>
+</ul>
+</li>
+</ul>
+<p>下面是论文源码👇：<br><img src="/images/a15-8.png" alt="a15-8"></p>
+<p><img src="/images/a15-9.png" alt="a15-9"></p>
+<h2 id="End"><a href="#End" class="headerlink" title="End"></a>End</h2><p>通过上文的分析我们可以看出，<code>Percolator</code>的优点是分布式的Commit table，TSO逻辑简单，缺点是锁检查时需要扫描所有Write set的锁情况，并且需要额外的存储开销来记录锁。<code>Omid</code>的优点是执行效率上优于<code>Percolator</code>，但是又多了一个中心系统Commit table。大家可以根据自己的使用场景来进行选择。</p>
+<p>参考资料：</p>
+<ul>
+<li><a href="https://www.usenix.org/system/files/conference/fast17/fast17-shacham.pdf" target="_blank" rel="noopener">Omid, Reloaded: Scalable and Highly-Available Transaction Processing</a></li>
+<li><a href="https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36726.pdf" target="_blank" rel="noopener">Large-scale Incremental Processing Using Distributed Transactions and Notifications</a></li>
+<li><a href="http://kaiyuan.me/2019/01/19/2pc/" target="_blank" rel="noopener">基于 KV 的分布式事务方案</a></li>
+<li><a href="https://zhuanlan.zhihu.com/p/79034576?utm_source=wechat_session&utm_medium=social&utm_oi=956566129104080896&from=singlemessage&isappinstalled=0&wechatShare=1&s_r=0" target="_blank" rel="noopener">TiDB 新特性漫谈：悲观事务</a></li>
+</ul>
+	  
+	</div>
+
+	<div>
+  	<center>
+	<div class="pagination">
+
+    
+    
+    <a type="button" class="btn btn-default disabled"><i class="fa fa-arrow-circle-o-left"></i>Prev</a>
+    
+
+    <a href="/" type="button" class="btn btn-default"><i class="fa fa-home"></i>Home</a>
+    
+    <a href="/2019/10/18/a14/" type="button" class="btn btn-default ">Next<i
+                class="fa fa-arrow-circle-o-right"></i></a>
+    
+
+    
+</div>
+
+    </center>
+	</div>
+	
+	<!-- comment -->
+	
+<section id="comment">
+    <h2 class="title">Comments</h2>
+
+    
+</section>
+
+
+	</div> <!-- col-md-9/col-md-12 -->
+		
+	
+	<div id="side_meta">
+		<div class="col-md-3" id="post_meta"> 
+
+	<!-- date -->
+	
+	<div class="meta-widget">
+	<i class="fa fa-clock-o"></i>
+	2019-11-08 
+	</div>
+	
+
+	<!-- categories -->
+    
+
+	<!-- tags -->
+	
+	<div class="meta-widget">
+	<a data-toggle="collapse" data-target="#tags"><i class="fa fa-tags"></i></a>		  
+    <ul id="tags" class="tag_box list-unstyled collapse in">	  
+	    
+  <li><a href="/tags/distributed-system/">distributed-system<span>7</span></a></li>
+    </ul>
+	</div>
+		
+
+	<!-- toc -->
+	<div class="meta-widget">
+	
+	   <a data-toggle="collapse" data-target="#toc"><i class="fa fa-bars"></i></a>
+	   <div id="toc" class="toc collapse in">
+		   <span class="toc-title">Contents</span>
+			<ol class="toc-article"><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#Percolator"><span class="toc-article-text">Percolator</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Transaction-Write"><span class="toc-article-text">Transaction Write</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Transaction-Read"><span class="toc-article-text">Transaction Read</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Example"><span class="toc-article-text">Example</span></a></li></ol></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#Percolator-in-TiDB"><span class="toc-article-text">Percolator in TiDB</span></a></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#Omid"><span class="toc-article-text">Omid</span></a><ol class="toc-article-child"><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Transaction-Write-1"><span class="toc-article-text">Transaction Write</span></a></li><li class="toc-article-item toc-article-level-3"><a class="toc-article-link" href="#Transaction-Read-1"><span class="toc-article-text">Transaction Read</span></a></li></ol></li><li class="toc-article-item toc-article-level-2"><a class="toc-article-link" href="#End"><span class="toc-article-text">End</span></a></li></ol>
+		</div>
+	
+	</div>
+	
+    <hr>
+	
+</div><!-- col-md-3 -->
+
+	</div>
+		
+
+</div><!-- row -->
+
+
+
+	</div>
+  </div>
+  <div class="container-narrow">
+  <footer> <p>
+  &copy; 2019 TalkWithKeyboard
+  
+      with help from <a href="http://hexo.io/" target="_blank">Hexo</a>,<a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind</a>,<a href="http://getbootstrap.com/" target="_blank">Twitter Bootstrap</a> and <a href="http://getbootstrap.com/" target="_blank">BOOTSTRA.386</a>. 
+     <br> Theme by <a href="http://github.com/wzpan/hexo-theme-freemind/">Freemind.386</a>.    
+</p>
+ </footer>
+</div> <!-- container-narrow -->
+  
+
+
+  
+<a id="gotop" href="#">   
+  <span>⬆︎TOP</span>
+</a>
+
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/search.js"></script> 
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+
+
+   <script type="text/javascript">      
+     var search_path = "search.xml";
+	 if (search_path.length == 0) {
+	 	search_path = "search.xml";
+	 }
+	 var path = "/" + search_path;
+     searchFunc(path, 'local-search-input', 'local-search-result');
+   </script>
+
+</body>
+   </html>
