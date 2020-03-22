@@ -97,6 +97,70 @@
 <div class="row">
 	<div class="col-md-8">
 		<h3 class="title">
+			<a href="/2018/08/19/a1/" >数据库的在线迁移[1]</a>
+		</h3>
+		</div>
+	<div class="col-md-4">
+		<div class="date">post @ 2018-08-19  </div>
+		</div>
+	</div>
+	
+
+
+			<div class="entry">
+  <div class="row">
+	
+	
+		<h2 id="Target"><a href="#Target" class="headerlink" title="Target"></a>Target</h2><p>在不暂停服务的前提下将一个 <strong>290G</strong> 的 Mongo 数据表中的部分字段迁移到 Postgresql 数据库，保证足够低的差异性。</p>
+<h2 id="Strategy"><a href="#Strategy" class="headerlink" title="Strategy"></a>Strategy</h2><p>一切的工作的基础是 MongoDB oplog 的幂等原则：</p>
+<ul>
+<li>首先启动一个服务将 MongoDB 中实时生产的 oplog 同步到 kafka 中。</li>
+<li>启动 Spark 任务将目标表中的字段批量同步到 Postgresql 中。</li>
+<li>启动 Storm 服务将 kafka 中的 oplog 回放到 Postgresql 中。</li>
+<li>启动 Spark 任务进行一致性的检查。</li>
+</ul>
+<p><img src="/images/a1-1.png" alt="a1-1"></p>
+<p>必须保证第一个过程在第二个过程之前启动，第三个任务在第二个任务完成之后启动。任务流程如图，oplog 被同步到 kafka 的一个 topic 中，这个 topic 被分成了8个 partition，启动了 3个 broker。然后将这个 kafka topic 作为 Storm 任务的 KafkaSpout，并发数为4。下游进行持久化任务的 Bolt 的并发数也为4。</p>
+<h3 id="同步-Oplog"><a href="#同步-Oplog" class="headerlink" title="同步 Oplog"></a>同步 Oplog</h3><p>这一步需要注意的是同一个 <code>_id</code> 的 oplog 的乱序问题，我们在回放 oplog 的时候必须按照发生的时间顺序进行回放，不然会出现丢失数据的情况。所以一定要保证 oplog 是按照生成的顺序放入 kafka 队列中的。在这种情况下肯定是单线程的服务来同步数据更加的合适，就不需要担心由于并发带来的乱序问题。</p>
+<p>第二个可能导致乱序的点是 oplog 在 kafka 中的存储位置，我们为了保证同一个 <code>_id</code> 的对象 oplog 不乱序，那么必须保证它们被存储在同一个 partition 当中。如果存储在不同的 partition 当中的话可能会在 Storm 的不同 Spout Consumer thread 中被处理，那么就有可能会出现创建时间在后面的 oplog 先被回放到 Postgresql 当中。而如何能保证同一个 <code>_id</code> 的对象放入到同一个 kafka partition 当中？只需要将 <code>_id</code> 作为 kafka message 的 key，因为 kafka 的 partition 机制就是如果有 message key 就按照 message key 进行 hash 以后进行分区。参考源码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">* Compute the partition for the given record.</span></span><br><span class="line"><span class="comment">*</span></span><br><span class="line"><span class="comment">* <span class="doctag">@param</span> topic The topic name</span></span><br><span class="line"><span class="comment">* <span class="doctag">@param</span> key The key to partition on (or null if no key)</span></span><br><span class="line"><span class="comment">* <span class="doctag">@param</span> keyBytes serialized key to partition on (or null if no key)</span></span><br><span class="line"><span class="comment">* <span class="doctag">@param</span> value The value to partition on or null</span></span><br><span class="line"><span class="comment">* <span class="doctag">@param</span> valueBytes serialized value to partition on or null</span></span><br><span class="line"><span class="comment">* <span class="doctag">@param</span> cluster The current cluster metadata</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">partition</span><span class="params">(String topic, Object key, <span class="keyword">byte</span>[] keyBytes, Object value, <span class="keyword">byte</span>[] valueBytes, Cluster cluster)</span> </span>&#123;</span><br><span class="line">   List&lt;PartitionInfo&gt; partitions = cluster.partitionsForTopic(topic);</span><br><span class="line">   <span class="keyword">int</span> numPartitions = partitions.size();</span><br><span class="line">   <span class="keyword">if</span> (keyBytes == <span class="keyword">null</span>) &#123;</span><br><span class="line">       <span class="keyword">int</span> nextValue = nextValue(topic);</span><br><span class="line">       List&lt;PartitionInfo&gt; availablePartitions = cluster.availablePartitionsForTopic(topic);</span><br><span class="line">       <span class="keyword">if</span> (availablePartitions.size() &gt; <span class="number">0</span>) &#123;</span><br><span class="line">           <span class="keyword">int</span> part = Utils.toPositive(nextValue) % availablePartitions.size();</span><br><span class="line">           <span class="keyword">return</span> availablePartitions.get(part).partition();</span><br><span class="line">       &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">           <span class="comment">// no partitions are available, give a non-available partition</span></span><br><span class="line">           <span class="keyword">return</span> Utils.toPositive(nextValue) % numPartitions;</span><br><span class="line">       &#125;</span><br><span class="line">   &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">       <span class="comment">// hash the keyBytes to choose a partition</span></span><br><span class="line">       <span class="keyword">return</span> Utils.toPositive(Utils.murmur2(keyBytes)) % numPartitions;</span><br><span class="line">   &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">int</span> <span class="title">nextValue</span><span class="params">(String topic)</span> </span>&#123;</span><br><span class="line">   AtomicInteger counter = topicCounterMap.get(topic);</span><br><span class="line">   <span class="keyword">if</span> (<span class="keyword">null</span> == counter) &#123;</span><br><span class="line">       counter = <span class="keyword">new</span> AtomicInteger(<span class="keyword">new</span> Random().nextInt());</span><br><span class="line">       AtomicInteger currentCounter = topicCounterMap.putIfAbsent(topic, counter);</span><br><span class="line">       <span class="keyword">if</span> (currentCounter != <span class="keyword">null</span>) &#123;</span><br><span class="line">           counter = currentCounter;</span><br><span class="line">       &#125;</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">return</span> counter.getAndIncrement();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果消息的 key 为 null，则先根据 topic 名获取上次计算分区时使用的一个整数并加一。然后判断 topic 的可用分区数是否大于0，如果大于0则使用获取的 <code>nextValue</code> 的值和可用分区数进行取模操作。如果 topic 的可用分区数小于等于0，则用获取的 <code>nextValue</code> 的值和总分区数进行取模操作（随机选择了一个不可用分区）</p>
+<p>如果消息的 key 不为 null，就是根据 hash 算法 <code>murmur2</code> 算出 key 的 hash 值，然后和分区数进行取模运算。</p>
+<h3 id="Storm-回放"><a href="#Storm-回放" class="headerlink" title="Storm 回放"></a>Storm 回放</h3><h4 id="乱序"><a href="#乱序" class="headerlink" title="乱序"></a>乱序</h4><p>现在我们已经保证同 <code>_id</code> 的消息会进入到同一个 Storm Spout thread 当中，现在还需要保证在发送到 Bolt Task 的时候也进入到同一个。这就需要考虑 Storm 的 grouping 策略了，其中只有 <code>FieldGrouping</code> 能满足要求，<code>FieldGrouping</code> 是通过 <code>parentBolt</code>  发出的 stream 当中声明的某一个或者几个 field 来做 grouping，比如 <code>parentBolt</code> 发出的 stream 中有：<code>username</code> 和 <code>password</code> 两个 field，而在声明 <code>FieldGrouping</code> 的时候设置按照 <code>username</code> 这个 field 来做 grouping。那么 <code>username</code> 相同的stream 则一定会进入到同一个 BoltThread 当中。</p>
+<p>但是这次的设计当中只有1个 Bolt，它的父级 Bolt 是一个 Spout。而没有找到合适的api来对一个 Spout 的 stream 声明 field，默认只有一个 <code>bytes</code> field。通过分析发现在 <code>KafkaSpout</code> 类中有一个 public 方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">declareOutputFields</span><span class="params">(OutputFieldsDeclarer declarer)</span> </span>&#123;</span><br><span class="line">declarer.declare(<span class="keyword">this</span>._spoutConfig.scheme.getOutputFields();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>是用来声明 <code>Fields</code> 的，通过参看文档，没有携带 <code>streamName</code> 参数的 <code>declare</code> 方法会声明一个 <code>streamName</code> 为 <code>default</code> 的 stream。</p>
+<p>所以我们只要使用自己的 <code>scheme</code> ，并且重载它的 <code>getOutputFields</code> 参数即可完成对这个 Spout 的 stream 声明 field。并且发现 <code>KafkaConfig</code> 类中 stream 是一个 <code>MultiScheme</code> 类型的 public 参数，构造函数里使用 <code>RawMultiScheme</code> 类进行初始化它的值，而该类中的 <code>getOutputFields</code> 方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Fields <span class="title">getOutputFields</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> Fields(<span class="keyword">new</span> String[]&#123;<span class="string">"bytes"</span>&#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>所以默认的 <code>Fields</code> 是 <code>bytes</code>。那么只要继承 <code>backtype.storm.spout.Scheme</code> 类重载 <code>getOutputFields</code> 和 <code>deserialize</code> 即可。由于传入 <code>Spout</code> 的要么是 bytes，要么是一个 String，所以如果不重载 <code>deserialize</code> 方法对其进行反序列化，那么设定的 <code>field</code> 也是没有实际意义的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MyScheme</span> <span class="keyword">implements</span> <span class="title">Scheme</span> </span>&#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> List&lt;Object&gt; <span class="title">deserialize</span><span class="params">(<span class="keyword">byte</span>[] ser)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">           ...</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception ex) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> Fields <span class="title">getOutputFields</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> Fields(...);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="网络不稳定性"><a href="#网络不稳定性" class="headerlink" title="网络不稳定性"></a>网络不稳定性</h4><p>上面说了怎么保证 <code>Storm</code> 内部的不乱序问题，而仅凭以上的方法还不足以保证数据的完整性。因为在 <code>Storm</code> 内部传输信息是需要通过网络进行传输，所以数据是有丢失的风险的。而 <code>Storm</code> 本身为了应对这种风险也设立了一种容错机制。具体可以参考: <a href="http://storm.apache.org/releases/1.0.6/Guaranteeing-message-processing.html" target="_blank" rel="noopener">Guaranteeing Message Processing</a></p>
+<p>总得来说就是 <code>Storm</code> 内部通过 <code>SpoutOutputCollector</code> 给每一个从 <code>Spout</code> 发出的 tuple 给定一个 id，如果在设定的 timeout 时间内没有完成这个 tuple 应该完成的所有 task，那么会发出一个 fail 信号让 <code>Storm</code> 通过这个 id 来对这个 tuple 进行重试。而使用者仅需要设定 timeout 时间，并且在 <code>collector.emit</code> 的时候将 tuple 作为第一个参数。</p>
+<h3 id="TIPS"><a href="#TIPS" class="headerlink" title="TIPS"></a>TIPS</h3><ul>
+<li><p>无论是离线的批量导入还是在线的回放，<code>insert</code> 和 <code>update</code> 操作需要使用 <code>upsert</code> 操作代替，不然会出现大量的由于 <code>id</code> 重复或者 <code>id</code> 不存在的报错。比如在表中有一个 <code>id</code> 为 a 的数据，而在第一步中记录了对 a 的 <code>update</code> 操作和 <code>delete</code> 操作，所以在第二步启动的时候这个 a 数据已经不存在了，而在回放的时候直接使用 <code>update</code> 操作回放会报错。</p>
+</li>
+<li><p>由于是对表中的部分数据进行迁移，所以在 <code>Bolt</code> 当中需要对 oplog 进行过滤，只对包含目标 <code>field</code> 的 oplog 进行重放，否则会存在大量的垃圾数据。</p>
+</li>
+<li><p>MongoDB oplog 的 offset 最好进行缓存，做好容错工作。</p>
+</li>
+</ul>
+
+	
+	</div>
+  <a type="button" href="/2018/08/19/a1/#more" class="btn btn-default more">Read More</a>
+</div>
+
+		
+			
+	
+	<!-- display as entry -->
+<div class="row">
+	<div class="col-md-8">
+		<h3 class="title">
 			<a href="/2018/01/31/a8/" >《Typescript Handbook》阅读笔记</a>
 		</h3>
 		</div>
@@ -826,35 +890,41 @@ new Schema({ createdAt: { type: Date, expires: &apos;1.5h&apos; }});
 		<h4>Tag Cloud</h4>
 		<ul class="tag_box inline list-unstyled">		
 		
-			<li><a href="/tags/storm/">storm<span>2</span></a></li>
-		
-			<li><a href="/tags/docker/">docker<span>1</span></a></li>
-		
-			<li><a href="/tags/distributed-system/">distributed-system<span>7</span></a></li>
-		
-			<li><a href="/tags/react/">react<span>1</span></a></li>
-		
-			<li><a href="/tags/typescript/">typescript<span>1</span></a></li>
-		
 			<li><a href="/tags/druid/">druid<span>1</span></a></li>
-		
-			<li><a href="/tags/java/">java<span>2</span></a></li>
 		
 			<li><a href="/tags/redux/">redux<span>1</span></a></li>
 		
+			<li><a href="/tags/distributed-system/">distributed-system<span>7</span></a></li>
+		
+			<li><a href="/tags/java/">java<span>2</span></a></li>
+		
+			<li><a href="/tags/typescript/">typescript<span>1</span></a></li>
+		
+			<li><a href="/tags/front-end/">front-end<span>1</span></a></li>
+		
+			<li><a href="/tags/react/">react<span>1</span></a></li>
+		
+			<li><a href="/tags/flink/">flink<span>1</span></a></li>
+		
+			<li><a href="/tags/monogdb/">monogdb<span>1</span></a></li>
+		
 			<li><a href="/tags/spark/">spark<span>1</span></a></li>
 		
-			<li><a href="/tags/hbase/">hbase<span>1</span></a></li>
-		
-			<li><a href="/tags/database/">database<span>2</span></a></li>
+			<li><a href="/tags/c/">c++<span>1</span></a></li>
 		
 			<li><a href="/tags/mongodb/">mongodb<span>2</span></a></li>
 		
 			<li><a href="/tags/elasticsearch/">elasticsearch<span>1</span></a></li>
 		
-			<li><a href="/tags/front-end/">front-end<span>1</span></a></li>
+			<li><a href="/tags/docker/">docker<span>1</span></a></li>
 		
-			<li><a href="/tags/c/">c++<span>1</span></a></li>
+			<li><a href="/tags/database/">database<span>2</span></a></li>
+		
+			<li><a href="/tags/storm/">storm<span>2</span></a></li>
+		
+			<li><a href="/tags/hbase/">hbase<span>1</span></a></li>
+		
+			<li><a href="/tags/kafka/">kafka<span>1</span></a></li>
 		
 		 
 		</ul>
@@ -866,6 +936,10 @@ new Schema({ createdAt: { type: Date, expires: &apos;1.5h&apos; }});
 <div class="widget">
   <h4>Recent Posts</h4>
   <ul class="entry list-unstyled">
+    
+      <li>
+        <a href="/2020/03/22/a17/" ><i class="fa fa-file-o"></i>Mongodb CDC链路中的有序性</a>
+      </li>
     
       <li>
         <a href="/2020/01/20/a16/" ><i class="fa fa-file-o"></i>URLEncoder in JAVA</a>
@@ -881,10 +955,6 @@ new Schema({ createdAt: { type: Date, expires: &apos;1.5h&apos; }});
     
       <li>
         <a href="/2019/09/28/a6/" ><i class="fa fa-file-o"></i>Elasticsearch优化思路</a>
-      </li>
-    
-      <li>
-        <a href="/2019/05/11/a5/" ><i class="fa fa-file-o"></i>RATE LIMIT FOR MONGOSPARK W...</a>
       </li>
     
   </ul>
